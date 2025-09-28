@@ -6,6 +6,8 @@ export interface Goal {
   deadline: Date;
   createdAt: Date;
   isCompleted: boolean;
+  type: "emergency" | "savings" | "investment" | "debt" | "purchase" | "other";
+  priority: "low" | "medium" | "high";
 }
 
 export interface ChatMessage {

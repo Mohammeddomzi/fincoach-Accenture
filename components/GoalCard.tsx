@@ -12,6 +12,7 @@ interface GoalCardProps {
   onEdit: (goal: Goal) => void;
   onDelete: (goal: Goal) => void;
   onMarkComplete: (goal: Goal) => void;
+  onAddMoney: (goal: Goal) => void;
 }
 
 export default function GoalCard({
@@ -19,6 +20,7 @@ export default function GoalCard({
   onEdit,
   onDelete,
   onMarkComplete,
+  onAddMoney,
 }: GoalCardProps) {
   const plan = computePlan(goal);
   const progress = calculateProgress(goal);
@@ -36,6 +38,10 @@ export default function GoalCard({
     onMarkComplete(goal);
   };
 
+  const handleAddMoney = () => {
+    onAddMoney(goal);
+  };
+
   return (
     <View
       backgroundColor="$gray8"
@@ -48,9 +54,41 @@ export default function GoalCard({
       <YStack space="$3">
         {/* Header */}
         <XStack justifyContent="space-between" alignItems="center">
-          <Text fontSize="$6" fontWeight="bold" color="$color">
-            {goal.name}
-          </Text>
+          <YStack>
+            <Text fontSize="$6" fontWeight="bold" color="$color">
+              {goal.name}
+            </Text>
+            <XStack space="$2" marginTop="$1">
+              <View
+                backgroundColor="$blue9"
+                paddingHorizontal="$2"
+                paddingVertical="$1"
+                borderRadius="$2"
+              >
+                <Text color="white" fontSize="$2" fontWeight="600">
+                  {goal.type?.charAt(0).toUpperCase() + goal.type?.slice(1) ||
+                    "Savings"}
+                </Text>
+              </View>
+              <View
+                backgroundColor={
+                  goal.priority === "high"
+                    ? "$red9"
+                    : goal.priority === "medium"
+                    ? "$yellow9"
+                    : "$green9"
+                }
+                paddingHorizontal="$2"
+                paddingVertical="$1"
+                borderRadius="$2"
+              >
+                <Text color="white" fontSize="$2" fontWeight="600">
+                  {goal.priority?.charAt(0).toUpperCase() +
+                    goal.priority?.slice(1) || "Medium"}
+                </Text>
+              </View>
+            </XStack>
+          </YStack>
           <Text fontSize="$3" color="$gray11">
             {daysLeft > 0 ? `${daysLeft} days left` : "Overdue"}
           </Text>
@@ -113,7 +151,19 @@ export default function GoalCard({
         )}
 
         {/* Actions */}
-        <XStack space="$2" justifyContent="flex-end">
+        <XStack space="$2" justifyContent="flex-end" flexWrap="wrap">
+          <Button
+            backgroundColor="$green9"
+            color="white"
+            onPress={handleAddMoney}
+            borderRadius="$2"
+            paddingHorizontal="$3"
+            paddingVertical="$2"
+            fontSize={14}
+            disabled={goal.isCompleted}
+          >
+            Add Money
+          </Button>
           <Button
             variant="outlined"
             borderColor="$blue9"
@@ -128,7 +178,7 @@ export default function GoalCard({
           </Button>
           {!goal.isCompleted && (
             <Button
-              backgroundColor="$green9"
+              backgroundColor="$yellow9"
               color="white"
               onPress={handleMarkComplete}
               borderRadius="$2"

@@ -11,27 +11,27 @@ export async function POST(req: Request): Promise<Response> {
       return new Response("OpenAI API key not configured", { status: 500 });
     }
 
-     const prompt = `Analyze the following financial data summary and provide insights and recommendations in Markdown format:
+    const prompt = `Analyze the following financial data summary and provide insights and recommendations in Markdown format:
 
 Data Summary:
 - Total rows: ${summary.totalRows}
 - Date range: ${
-       summary.dateRange
-         ? `${summary.dateRange.start} to ${summary.dateRange.end}`
-         : "Not available"
-     }
+      summary.dateRange
+        ? `${summary.dateRange.start} to ${summary.dateRange.end}`
+        : "Not available"
+    }
 - Categories: ${
-       summary.categories
-         ? Object.keys(summary.categories).join(", ")
-         : "Not available"
-     }
+      summary.categories
+        ? Object.keys(summary.categories).join(", ")
+        : "Not available"
+    }
 - Totals: ${
-       summary.totals
-         ? Object.entries(summary.totals)
-             .map(([key, value]) => `${key}: ${value}`)
-             .join(", ")
-         : "Not available"
-     }
+      summary.totals
+        ? Object.entries(summary.totals)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(", ")
+        : "Not available"
+    }
 
 Ask: "Identify 3–5 insights, 3 savings opportunities, any recurring-like patterns, and a 30-day action plan. Keep 150–250 words. Return Markdown."`;
 
@@ -47,7 +47,7 @@ Ask: "Identify 3–5 insights, 3 savings opportunities, any recurring-like patte
           {
             role: "system",
             content:
-              "You are a financial analyst. Identify 3–5 insights, 3 savings opportunities, any recurring-like patterns, and a 30-day action plan. Keep responses 150–250 words. Return Markdown.",
+              "You are a financial analyst. Identify 3 insights, 3 savings opportunities, any recurring-like patterns, and a 30-day action plan. Keep responses 75-125 words. Return Markdown.",
           },
           {
             role: "user",
