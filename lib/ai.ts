@@ -19,31 +19,105 @@ export const sendChatMessage = async (
     );
 
     if (isMobile) {
-      console.log("Running in Expo Go - using mock response");
-      // Create a mock streaming response for mobile testing
+      // Use non-streaming API on device, then simulate streaming locally
+      const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+      console.log("Expo Go base URL:", baseUrl);
+      if (!baseUrl) {
+        console.warn(
+          "EXPO_PUBLIC_API_BASE_URL not set; using brief notice on device"
+        );
+        return new ReadableStream({
+          start(controller) {
+            const text =
+              "Backend URL not configured. Set EXPO_PUBLIC_API_BASE_URL to your dev server URL.";
+            let i = 0;
+            const interval = setInterval(() => {
+              if (i < text.length) {
+                controller.enqueue(new TextEncoder().encode(text[i]));
+                i++;
+              } else {
+                clearInterval(interval);
+                controller.close();
+              }
+            }, 20);
+          },
+        });
+      }
+
+      const url = `${baseUrl.replace(/\/$/, "")}/api/chat`;
+      console.log("Calling mobile chat endpoint:", url);
+      let full = "";
+      try {
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message, settings, stream: false }),
+        });
+
+        console.log("Mobile chat response status:", resp.status);
+        if (!resp.ok) {
+          const errText = await resp.text().catch(() => "");
+          throw new Error(
+            `Mobile chat request failed: ${resp.status} ${errText}`
+          );
+        }
+
+        const data = await resp.json();
+        full = data?.content ?? "";
+      } catch (mobileErr) {
+        console.warn(
+          "Mobile backend call failed, trying direct OpenAI:",
+          mobileErr
+        );
+        const publicKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+        if (!publicKey) {
+          throw mobileErr;
+        }
+        // Direct, non-streaming OpenAI call as a fallback for device
+        const currency = settings?.currency || "SAR";
+        const locale = settings?.locale || "en-SA";
+        const system = `You are a friendly, conservative AI financial coach. Currency is ${currency}, locale ${locale}. Prioritize budgeting, debt reduction, emergency funds, and realistic plans. Consider active goals (name, target, deadline, required per-day/week). Keep answers concise with clear bullets and a short 30-day plan. Avoid personalized investment advice; provide general best practices and disclaim: "Educational purposes, not financial advice."`;
+        const openaiResp = await fetch(
+          "https://api.openai.com/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${publicKey}`,
+            },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: system },
+                { role: "user", content: message },
+              ],
+              temperature: 0.7,
+              max_tokens: 1000,
+            }),
+          }
+        );
+        if (!openaiResp.ok) {
+          const errText = await openaiResp.text().catch(() => "");
+          throw new Error(
+            `Direct OpenAI failed: ${openaiResp.status} ${errText}`
+          );
+        }
+        const json = await openaiResp.json();
+        full = json?.choices?.[0]?.message?.content ?? "";
+      }
+
       return new ReadableStream({
         start(controller) {
-          const mockResponse = `Hello! I'm your AI financial advisor. I received your message: "${message}". 
-
-Here are some general financial tips:
-• Build an emergency fund (3-6 months expenses)
-• Pay off high-interest debt first
-• Start investing early for compound growth
-• Track your spending monthly
-• Set realistic financial goals
-
-Remember: This is educational content, not professional financial advice.`;
-
-          let index = 0;
+          let i = 0;
           const interval = setInterval(() => {
-            if (index < mockResponse.length) {
-              controller.enqueue(new TextEncoder().encode(mockResponse[index]));
-              index++;
+            if (i < full.length) {
+              controller.enqueue(new TextEncoder().encode(full[i]));
+              i++;
             } else {
               clearInterval(interval);
               controller.close();
             }
-          }, 30); // 30ms delay between characters for realistic streaming
+          }, 15);
         },
       });
     }
@@ -55,16 +129,34 @@ Remember: This is educational content, not professional financial advice.`;
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ message, settings }),
+      body: JSON.stringify({ message, settings, stream: true }),
     });
 
     console.log("Response status:", response.status);
     console.log("Response ok:", response.ok);
 
     if (!response.ok) {
-      const errorText = await response.text();
+      const errorText = await response.text().catch(() => "");
       console.error("Response error:", errorText);
-      throw new Error(`HTTP error! status: ${response.status}`);
+      // Return a streamed fallback containing the error text so UI doesn't show generic error
+      return new ReadableStream({
+        start(controller) {
+          const text =
+            `I apologize, but I couldn't complete your request.\n\n` +
+            (errorText ? `Error from server: ${errorText}\n\n` : "") +
+            `Please try again in a moment.`;
+          let i = 0;
+          const interval = setInterval(() => {
+            if (i < text.length) {
+              controller.enqueue(new TextEncoder().encode(text[i]));
+              i++;
+            } else {
+              clearInterval(interval);
+              controller.close();
+            }
+          }, 20);
+        },
+      });
     }
 
     console.log("Response body exists:", !!response.body);
@@ -76,7 +168,9 @@ Remember: This is educational content, not professional financial advice.`;
     console.log("Falling back to mock response due to error");
     return new ReadableStream({
       start(controller) {
-        const fallbackResponse = `I apologize, but I'm having trouble connecting right now. Here are some general financial tips:
+        const fallbackResponse = `I apologize, but I'm having trouble connecting right now.\n\nError: ${String(
+          error
+        )}\n\nHere are some general financial tips:
 
 • Build an emergency fund (3-6 months of expenses)
 • Pay off high-interest debt first
