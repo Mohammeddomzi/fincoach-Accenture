@@ -6,6 +6,8 @@ import { Progress } from "@tamagui/progress";
 import { Goal } from "../types";
 import { computePlan, calculateProgress, getDaysLeft } from "../lib/goals";
 import { formatCurrency } from "../lib/currency";
+import { Modal } from "react-native";
+import { useState } from "react";
 
 interface GoalCardProps {
   goal: Goal;
@@ -22,9 +24,23 @@ export default function GoalCard({
   onMarkComplete,
   onAddMoney,
 }: GoalCardProps) {
+  const [showSimulate, setShowSimulate] = useState(false);
+  const [incomeAdj, setIncomeAdj] = useState(0);
+  const [spendAdj, setSpendAdj] = useState(0);
   const plan = computePlan(goal);
   const progress = calculateProgress(goal);
   const daysLeft = getDaysLeft(goal);
+
+  const isCompleted = goal.isCompleted || progress >= 100;
+  const hasStreak = goal.currentAmount > 0 && !isCompleted;
+
+  const progressColor = isCompleted
+    ? "$green9"
+    : progress >= 66
+    ? "$green9"
+    : progress >= 33
+    ? "$yellow9"
+    : "$red9";
 
   const handleEdit = () => {
     onEdit(goal);
@@ -58,9 +74,9 @@ export default function GoalCard({
             <Text fontSize="$6" fontWeight="bold" color="$color">
               {goal.name}
             </Text>
-            <XStack space="$2" marginTop="$1">
+            <XStack space="$2" marginTop="$1" alignItems="center" flexWrap="wrap">
               <View
-                backgroundColor="$blue9"
+                backgroundColor="$primary"
                 paddingHorizontal="$2"
                 paddingVertical="$1"
                 borderRadius="$2"
@@ -87,6 +103,16 @@ export default function GoalCard({
                     goal.priority?.slice(1) || "Medium"}
                 </Text>
               </View>
+              {isCompleted && (
+                <View backgroundColor="$green9" paddingHorizontal="$2" paddingVertical="$1" borderRadius="$2">
+                  <Text color="white" fontSize="$2" fontWeight="700">🏆 Completed</Text>
+                </View>
+              )}
+              {hasStreak && (
+                <View backgroundColor="$yellow9" paddingHorizontal="$2" paddingVertical="$1" borderRadius="$2">
+                  <Text color="#0a0a0a" fontSize="$2" fontWeight="700">🔥 Streak</Text>
+                </View>
+              )}
             </XStack>
           </YStack>
           <Text fontSize="$3" color="$gray11">
@@ -103,18 +129,9 @@ export default function GoalCard({
             </Text>
             <Text color="$gray11">{Math.round(progress)}%</Text>
           </XStack>
-          <View
-            backgroundColor="#333"
-            height={8}
-            borderRadius={4}
-            overflow="hidden"
-          >
-            <View
-              backgroundColor="#007AFF"
-              height="100%"
-              width={`${Math.min(progress, 100)}%`}
-            />
-          </View>
+          <Progress value={Math.min(progress, 100)} max={100} backgroundColor="$gray10" height={10} borderRadius={6}>
+            <Progress.Indicator backgroundColor={progressColor} />
+          </Progress>
         </YStack>
 
         {/* Plan Details */}
@@ -165,9 +182,20 @@ export default function GoalCard({
             Add Money
           </Button>
           <Button
+            backgroundColor="$primary"
+            color="#ffffff"
+            onPress={() => setShowSimulate(true)}
+            borderRadius="$2"
+            paddingHorizontal="$3"
+            paddingVertical="$2"
+            fontSize={14}
+          >
+            Simulate
+          </Button>
+          <Button
             variant="outlined"
-            borderColor="$blue9"
-            color="$blue9"
+            borderColor="$primary"
+            color="$primary"
             onPress={handleEdit}
             borderRadius="$2"
             paddingHorizontal="$3"
@@ -202,6 +230,46 @@ export default function GoalCard({
           </Button>
         </XStack>
       </YStack>
+
+      {/* Simulate Modal */}
+      <Modal
+        visible={showSimulate}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowSimulate(false)}
+      >
+        <View flex={1} backgroundColor="$background" style={{ padding: 16 }}>
+          <YStack space="$4" flex={1}>
+            <Text fontSize="$7" fontWeight="bold" color="$color">
+              What-If Simulation
+            </Text>
+            <Text color="$gray11">
+              Adjust your monthly income/spending deltas to preview outcomes.
+            </Text>
+            <View backgroundColor="$gray8" padding="$3" borderRadius="$3">
+              <Text color="$color" marginBottom="$2">Income Adjustment (SAR/mo)</Text>
+              <Text color="$gray11">{incomeAdj.toFixed(0)}</Text>
+            </View>
+            <View backgroundColor="$gray8" padding="$3" borderRadius="$3">
+              <Text color="$color" marginBottom="$2">Spending Adjustment (SAR/mo)</Text>
+              <Text color="$gray11">{spendAdj.toFixed(0)}</Text>
+            </View>
+            <View backgroundColor="$gray8" padding="$3" borderRadius="$3">
+              <Text color="$color" fontWeight="700" marginBottom="$2">Projected Pace</Text>
+              <Text color="$color">
+                {"~"}
+                {formatCurrency(Math.max(0, (plan.perMonth + incomeAdj - spendAdj)))}
+                {" per month"}
+              </Text>
+            </View>
+            <XStack space="$3" marginTop="auto" justifyContent="flex-end">
+              <Button variant="outlined" borderColor="$gray8" color="$gray11" onPress={() => setShowSimulate(false)}>
+                Close
+              </Button>
+            </XStack>
+          </YStack>
+        </View>
+      </Modal>
     </View>
   );
 }

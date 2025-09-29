@@ -207,6 +207,14 @@ export const loadSettings = async (): Promise<any> => {
       currency: "SAR",
       theme: "dark",
       locale: "en-SA",
+      companyMode: false,
+      companyBrand: {
+        name: "",
+        primary: "#2d5b67",
+        secondary: "#4f7f8c",
+        accent: "#b9dae9",
+        logoPath: "",
+      },
     };
   } catch (error) {
     console.error("Error loading settings:", error);
@@ -214,6 +222,14 @@ export const loadSettings = async (): Promise<any> => {
       currency: "SAR",
       theme: "dark",
       locale: "en-SA",
+      companyMode: false,
+      companyBrand: {
+        name: "",
+        primary: "#2d5b67",
+        secondary: "#4f7f8c",
+        accent: "#b9dae9",
+        logoPath: "",
+      },
     };
   }
 };

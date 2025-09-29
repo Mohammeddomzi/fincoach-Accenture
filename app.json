@@ -17,12 +17,13 @@
     "slug": "fincoach",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    // Temporarily disable icon to avoid bad file reference
+    // "icon": "./assets/adaptive-icon.png",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#0a0a0a"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
@@ -30,8 +31,9 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#000000"
+        // Temporarily disable adaptive icon image
+        // "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0a0a0a"
       }
     },
     "extra": {

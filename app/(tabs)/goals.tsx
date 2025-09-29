@@ -14,8 +14,11 @@ import { YStack, XStack } from "@tamagui/stacks";
 import { Button } from "@tamagui/button";
 import { Goal } from "../../types";
 import { saveGoals, loadGoals } from "../../lib/ai";
+import ForecastCard from "../../components/ForecastCard";
+import { forecastSixMonths } from "../../lib/goals";
 import { formatCurrency } from "../../lib/currency";
 import GoalCard from "../../components/GoalCard";
+import EmptyIllustration from "../../components/EmptyIllustration";
 
 export default function GoalsScreen() {
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -261,17 +264,30 @@ export default function GoalsScreen() {
               borderRadius="$4"
               alignItems="center"
             >
+              <EmptyIllustration type="piggy" />
               <Text
-                fontSize="$5"
-                color="$gray11"
+                fontSize="$6"
+                color="$color"
                 textAlign="center"
-                marginBottom="$3"
+                marginTop="$3"
+                fontWeight="bold"
               >
-                No goals yet
+                Start your financial journey
               </Text>
-              <Text fontSize="$4" color="$gray11" textAlign="center">
-                Start by adding your first financial goal
+              <Text fontSize="$4" color="$gray11" textAlign="center" marginTop="$2">
+                Add your first goal to begin tracking progress and momentum.
               </Text>
+              <Button
+                backgroundColor="$primary"
+                color="#ffffff"
+                onPress={handleAddGoal}
+                borderRadius="$3"
+                paddingHorizontal="$4"
+                paddingVertical="$3"
+                marginTop="$4"
+              >
+                Add your first goal
+              </Button>
             </View>
           ) : (
             goals.map((goal) => (
@@ -284,6 +300,26 @@ export default function GoalsScreen() {
                 onAddMoney={handleAddMoney}
               />
             ))
+          )}
+
+          {/* Forecasts */}
+          {goals.length > 0 && (
+            <YStack space="$3">
+              <Text fontSize="$6" fontWeight="bold" color="$color">
+                Predictive Insights
+              </Text>
+              {goals.slice(0, 3).map((g) => {
+                const f = forecastSixMonths(g);
+                return (
+                  <ForecastCard
+                    key={`forecast-${g.id}`}
+                    title={`If you continue at this pace, you’ll save`}
+                    amountLabel={`SAR ${Math.round(f.sixMonthSavings).toLocaleString()}`}
+                    timeframeLabel={`in 6 months (~SAR ${Math.round(f.pacePerMonth).toLocaleString()}/mo)`}
+                  />
+                );
+              })}
+            </YStack>
           )}
         </YStack>
       </ScrollView>

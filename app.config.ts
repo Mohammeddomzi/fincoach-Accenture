@@ -5,22 +5,23 @@ const config: ExpoConfig = {
   slug: "fincoach",
   version: "1.0.0",
   orientation: "portrait",
-  icon: "./assets/icon.png",
-  userInterfaceStyle: "dark",
+  // Temporarily disable app icon to avoid failing on an invalid file during dev
+  // icon: "./assets/adaptive-icon.png",
+  userInterfaceStyle: "automatic",
   splash: {
     image: "./assets/splash.png",
     resizeMode: "contain",
-    backgroundColor: "#000000",
+    backgroundColor: "#0a0a0a",
   },
   assetBundlePatterns: ["**/*"],
   ios: {
     supportsTablet: true,
   },
   android: {
-    adaptiveIcon: {
-      foregroundImage: "./assets/adaptive-icon.png",
-      backgroundColor: "#000000",
-    },
+    // adaptiveIcon: {
+    //   foregroundImage: "./assets/adaptive-icon.png",
+    //   backgroundColor: "#0a0a0a",
+    // },
   },
   web: {
     output: "server",
