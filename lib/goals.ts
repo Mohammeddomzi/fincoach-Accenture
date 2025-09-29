@@ -8,6 +8,11 @@ export interface GoalPlan {
   suggestions: string[];
 }
 
+export interface Forecast {
+  sixMonthSavings: number;
+  pacePerMonth: number;
+}
+
 export const computePlan = (goal: Goal): GoalPlan => {
   const now = new Date();
   const deadline = new Date(goal.deadline);
@@ -69,4 +74,15 @@ export const getDaysLeft = (goal: Goal): number => {
   return Math.ceil(
     (deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
   );
+};
+
+export const forecastSixMonths = (goal: Goal): Forecast => {
+  // Approximate saving pace from currentAmount over goal age
+  const now = new Date();
+  const created = new Date(goal.createdAt);
+  const daysSince = Math.max(1, Math.ceil((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
+  const pacePerDay = goal.currentAmount / daysSince;
+  const pacePerMonth = pacePerDay * 30;
+  const sixMonthSavings = pacePerMonth * 6;
+  return { sixMonthSavings, pacePerMonth };
 };

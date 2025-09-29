@@ -185,6 +185,23 @@ export default function ChatView({ onMessageSent }: ChatViewProps) {
           </View>
         )}
 
+        {/* Guided prompts when empty */}
+        {messages.length === 0 && !isLoading && !streamingMessage && (
+          <View padding="$3" backgroundColor="$gray8">
+            <Text color="$color" fontSize="$5" fontWeight="700" marginBottom="$2">
+              Welcome!
+            </Text>
+            <Text color="$gray11" marginBottom="$3">
+              Do you want to track expenses, set goals, or get forecasts today?
+            </Text>
+            <XStack gap={8} flexWrap="wrap">
+              <Button backgroundColor="$primary" color="#ffffff" onPress={() => setInputText("Help me track expenses from my CSV")}>Track expenses</Button>
+              <Button backgroundColor="$secondary" color="#0a0a0a" onPress={() => setInputText("I want to set a savings goal")}>Set goals</Button>
+              <Button backgroundColor="$accent" color="#0a0a0a" onPress={() => setInputText("Give me a 6-month savings forecast")}>Get forecasts</Button>
+            </XStack>
+          </View>
+        )}
+
         {/* Messages */}
         <ScrollView
           ref={scrollViewRef}
@@ -202,13 +219,13 @@ export default function ChatView({ onMessageSent }: ChatViewProps) {
               >
                 <View
                   backgroundColor={
-                    message.role === "user" ? "$blue9" : "$gray8"
+                    message.role === "user" ? "$primary" : "$gray8"
                   }
                   padding="$3"
                   borderRadius="$3"
                   maxWidth="80%"
                 >
-                  <Text color="white">{message.content}</Text>
+                  <Text color="#ffffff">{message.content}</Text>
                   <Text fontSize="$2" color="$gray11" marginTop="$1">
                     {message.timestamp.toLocaleTimeString()}
                   </Text>
@@ -227,7 +244,7 @@ export default function ChatView({ onMessageSent }: ChatViewProps) {
                   borderRadius="$3"
                   maxWidth="80%"
                 >
-                  <Text color="white">{streamingMessage}</Text>
+                  <Text color="#ffffff">{streamingMessage}</Text>
                   <Text fontSize="$2" color="$gray11" marginTop="$1">
                     Typing...
                   </Text>
@@ -248,16 +265,16 @@ export default function ChatView({ onMessageSent }: ChatViewProps) {
             value={inputText}
             onChangeText={setInputText}
             placeholder="Ask your financial advisor..."
-            placeholderTextColor="#666"
+            placeholderTextColor="#6b7680"
             style={{
               flex: 1,
-              backgroundColor: "#1a1a1a",
-              color: "white",
+              backgroundColor: "#111315",
+              color: "#ffffff",
               padding: 12,
               borderRadius: 8,
               marginRight: 8,
               borderWidth: 1,
-              borderColor: "#333",
+              borderColor: "#2b2f33",
             }}
             multiline
             maxLength={1000}
@@ -268,7 +285,7 @@ export default function ChatView({ onMessageSent }: ChatViewProps) {
           <Button
             onPress={handleSend}
             disabled={!inputText.trim() || isLoading}
-            backgroundColor="$blue9"
+            backgroundColor="$primary"
             color="white"
             paddingHorizontal="$4"
             borderRadius="$3"

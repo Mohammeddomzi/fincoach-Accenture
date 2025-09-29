@@ -8,6 +8,7 @@ import { analyzeCSV } from "../../lib/ai";
 import { formatCurrency } from "../../lib/currency";
 import MetricCard from "../../components/MetricCard";
 import { CSVData, MetricCard as MetricCardType } from "../../types";
+import GhostChart from "../../components/GhostChart";
 
 export default function AnalysisScreen() {
   const [csvData, setCsvData] = useState<CSVData | null>(null);
@@ -242,6 +243,9 @@ export default function AnalysisScreen() {
               borderRadius="$4"
               alignItems="center"
             >
+              <View style={{ position: "absolute", top: 16, left: 16, right: 16, opacity: 0.35 }} pointerEvents="none">
+                <GhostChart />
+              </View>
               <Text
                 fontSize="$5"
                 color="$gray11"
@@ -262,7 +266,7 @@ export default function AnalysisScreen() {
 
               <YStack space="$3" alignItems="center">
                 <Button
-                  backgroundColor="$blue9"
+                  backgroundColor="$primary"
                   color="white"
                   onPress={handlePickFile}
                   disabled={isLoading}

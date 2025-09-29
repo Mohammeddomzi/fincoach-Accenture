@@ -13,6 +13,14 @@ export default function SettingsScreen() {
     currency: "SAR",
     theme: "dark" as "dark" | "light" | "system",
     locale: "en-SA",
+    companyMode: false,
+    companyBrand: {
+      name: "",
+      primary: "#2d5b67",
+      secondary: "#4f7f8c",
+      accent: "#b9dae9",
+      logoPath: "",
+    },
   });
 
   useEffect(() => {
@@ -32,6 +40,12 @@ export default function SettingsScreen() {
 
   const handleThemeChange = (theme: "dark" | "light" | "system") => {
     const newSettings = { ...settings, theme };
+    setSettings(newSettings);
+    saveSettings(newSettings);
+  };
+
+  const handleCompanyModeToggle = (companyMode: boolean) => {
+    const newSettings = { ...settings, companyMode };
     setSettings(newSettings);
     saveSettings(newSettings);
   };
@@ -118,6 +132,42 @@ export default function SettingsScreen() {
               </Button>
             ))}
           </XStack>
+        </YStack>
+
+        {/* Company Mode */}
+        <YStack space="$3">
+          <Text fontSize="$5" fontWeight="600" color="$color">
+            Company Mode
+          </Text>
+          <XStack space="$3" alignItems="center">
+            <Button
+              backgroundColor={settings.companyMode ? "$primary" : "$gray8"}
+              color={settings.companyMode ? "#ffffff" : "$color"}
+              onPress={() => handleCompanyModeToggle(!settings.companyMode)}
+              borderRadius="$3"
+              paddingHorizontal="$4"
+              paddingVertical="$3"
+            >
+              {settings.companyMode ? "Enabled" : "Disabled"}
+            </Button>
+            <Text color="$gray11">
+              Switch branding, enable partner embed & enterprise options.
+            </Text>
+          </XStack>
+        </YStack>
+
+        {/* Partner Embed & APIs (scaffold) */}
+        <YStack space="$3">
+          <Text fontSize="$5" fontWeight="600" color="$color">
+            Partner Integration (Preview)
+          </Text>
+          <View backgroundColor="$gray8" padding="$3" borderRadius="$3" borderWidth={1} borderColor="$borderColor">
+            <Text color="$gray11">
+              - Chatbot embed URL (iFrame/WebView)
+              {"\n"}- Product APIs: loans, savings, insurance, investments
+              {"\n"}- Aggregated analytics for retention and product improvement
+            </Text>
+          </View>
         </YStack>
 
         {/* Locale */}
