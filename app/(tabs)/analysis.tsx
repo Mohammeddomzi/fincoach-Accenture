@@ -3,12 +3,16 @@ import { Alert, ScrollView } from "react-native";
 import { View, Text } from "@tamagui/core";
 import { YStack, XStack } from "@tamagui/stacks";
 import { Button } from "@tamagui/button";
+import { Animated } from "react-native";
 import { pickCSVFile, parseCSV, downloadSampleCSV } from "../../lib/csv";
 import { analyzeCSV } from "../../lib/ai";
 import { formatCurrency } from "../../lib/currency";
 import MetricCard from "../../components/MetricCard";
 import { CSVData, MetricCard as MetricCardType } from "../../types";
 import GhostChart from "../../components/GhostChart";
+import Header from "../../src/components/ui/Header";
+import Card from "../../src/components/ui/Card";
+import GlowButton from "../../src/components/ui/GlowButton";
 
 export default function AnalysisScreen() {
   const [csvData, setCsvData] = useState<CSVData | null>(null);
@@ -230,66 +234,42 @@ export default function AnalysisScreen() {
 
   return (
     <View flex={1} backgroundColor="$background">
+      <Header />
       <ScrollView style={{ padding: 16 }}>
         <YStack space="$4">
-          <Text fontSize="$8" fontWeight="bold" color="$color">
-            Financial Analysis
-          </Text>
-
           {!csvData ? (
-            <View
-              backgroundColor="$gray8"
-              padding="$6"
-              borderRadius="$4"
-              alignItems="center"
-            >
-              <View style={{ position: "absolute", top: 16, left: 16, right: 16, opacity: 0.35 }} pointerEvents="none">
-                <GhostChart />
-              </View>
-              <Text
-                fontSize="$5"
-                color="$gray11"
-                textAlign="center"
-                marginBottom="$3"
-              >
-                Upload CSV to Analyze
-              </Text>
-              <Text
-                fontSize="$4"
-                color="$gray11"
-                textAlign="center"
-                marginBottom="$4"
-              >
-                Upload your financial data in CSV format to get AI-powered
-                insights
-              </Text>
-
-              <YStack space="$3" alignItems="center">
-                <Button
-                  backgroundColor="$primary"
-                  color="white"
-                  onPress={handlePickFile}
-                  disabled={isLoading}
-                  borderRadius="$3"
-                  paddingHorizontal="$4"
-                  paddingVertical="$3"
-                >
-                  {isLoading ? "Processing..." : "Upload CSV"}
-                </Button>
-
-                <Button
-                  variant="outlined"
-                  borderColor="$gray8"
-                  color="$gray11"
-                  onPress={handleDownloadSample}
-                  borderRadius="$3"
-                  paddingHorizontal="$4"
-                  paddingVertical="$3"
-                >
-                  Download Sample CSV
-                </Button>
-              </YStack>
-            </View>
+            <Card>
+                <YStack alignItems="center" space="$4">
+                  <View style={{ position: "relative", width: "100%", height: 120, opacity: 0.3 }} pointerEvents="none">
+                    <GhostChart width={280} height={120} />
+                  </View>
+                  <YStack alignItems="center" space="$2">
+                    <Text fontSize="$6" fontWeight="800" color="$color" textAlign="center">
+                      Upload CSV to Analyze
+                    </Text>
+                    <Text fontSize="$4" color="$textDim" textAlign="center">
+                      Upload your financial data in CSV format to get AI-powered insights
+                    </Text>
+                  </YStack>
+                  <YStack space="$3" alignItems="center" width="100%">
+                    <GlowButton onPress={handlePickFile} disabled={isLoading}>
+                      {isLoading ? "Processing..." : "Upload CSV"}
+                    </GlowButton>
+                    <Button
+                      variant="outlined"
+                      borderColor="$borderColor"
+                      color="$textDim"
+                      onPress={handleDownloadSample}
+                      borderRadius="$3"
+                      paddingHorizontal="$4"
+                      paddingVertical="$3"
+                      width="100%"
+                    >
+                      Download Sample CSV
+                    </Button>
+                  </YStack>
+                </YStack>
+              </Card>
           ) : (
             <>
               {/* Metrics */}

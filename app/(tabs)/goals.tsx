@@ -12,6 +12,9 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { View, Text } from "@tamagui/core";
 import { YStack, XStack } from "@tamagui/stacks";
 import { Button } from "@tamagui/button";
+import { Progress } from "@tamagui/progress";
+import { Animated } from "react-native";
+import { Trophy } from "@tamagui/lucide-icons";
 import { Goal } from "../../types";
 import { saveGoals, loadGoals } from "../../lib/ai";
 import ForecastCard from "../../components/ForecastCard";
@@ -19,11 +22,16 @@ import { forecastSixMonths } from "../../lib/goals";
 import { formatCurrency } from "../../lib/currency";
 import GoalCard from "../../components/GoalCard";
 import EmptyIllustration from "../../components/EmptyIllustration";
+import Header from "../../src/components/ui/Header";
+import Card from "../../src/components/ui/Card";
+import GlowButton from "../../src/components/ui/GlowButton";
+import WhatIfModal from "../../components/WhatIfModal";
 
 export default function GoalsScreen() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddMoneyModal, setShowAddMoneyModal] = useState(false);
+  const [showWhatIfModal, setShowWhatIfModal] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   const [addMoneyAmount, setAddMoneyAmount] = useState(0);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
@@ -213,6 +221,11 @@ export default function GoalsScreen() {
     setShowAddMoneyModal(true);
   };
 
+  const handleSimulate = (goal: Goal) => {
+    setSelectedGoal(goal);
+    setShowWhatIfModal(true);
+  };
+
   const handleSaveAddMoney = () => {
     if (!selectedGoal || addMoneyAmount <= 0) {
       Alert.alert("Error", "Please enter a valid amount");
@@ -239,67 +252,122 @@ export default function GoalsScreen() {
 
   return (
     <View flex={1} backgroundColor="$background">
+      <Header />
       <ScrollView style={{ padding: 16 }}>
         <YStack space="$4">
-          <XStack justifyContent="space-between" alignItems="center">
-            <Text fontSize="$8" fontWeight="bold" color="$color">
-              Financial Goals
-            </Text>
-            <Button
-              backgroundColor="$blue9"
-              color="white"
-              onPress={handleAddGoal}
-              borderRadius="$3"
-              paddingHorizontal="$4"
-              paddingVertical="$3"
-            >
-              Add Goal
-            </Button>
-          </XStack>
-
           {goals.length === 0 ? (
-            <View
-              backgroundColor="$gray8"
-              padding="$6"
-              borderRadius="$4"
-              alignItems="center"
-            >
-              <EmptyIllustration type="piggy" />
-              <Text
-                fontSize="$6"
-                color="$color"
-                textAlign="center"
-                marginTop="$3"
-                fontWeight="bold"
-              >
-                Start your financial journey
-              </Text>
-              <Text fontSize="$4" color="$gray11" textAlign="center" marginTop="$2">
-                Add your first goal to begin tracking progress and momentum.
-              </Text>
-              <Button
-                backgroundColor="$primary"
-                color="#ffffff"
-                onPress={handleAddGoal}
-                borderRadius="$3"
-                paddingHorizontal="$4"
-                paddingVertical="$3"
-                marginTop="$4"
-              >
-                Add your first goal
-              </Button>
-            </View>
+            <Card>
+              <YStack alignItems="center" space="$3">
+                <EmptyIllustration type="piggy" />
+                <Text fontSize="$6" fontWeight="800" color="$color" textAlign="center">
+                  Start your financial journey
+                </Text>
+                <Text fontSize="$4" color="$textDim" textAlign="center">
+                  Add your first goal to begin tracking progress and momentum.
+                </Text>
+                <GlowButton onPress={handleAddGoal}>
+                  Add Goal
+                </GlowButton>
+              </YStack>
+            </Card>
           ) : (
-            goals.map((goal) => (
-              <GoalCard
-                key={goal.id}
-                goal={goal}
-                onEdit={handleEditGoal}
-                onDelete={handleDeleteGoal}
-                onMarkComplete={handleMarkComplete}
-                onAddMoney={handleAddMoney}
-              />
-            ))
+            <>
+              {/* Badges Section */}
+              <YStack space="$2">
+                <Text fontSize="$5" fontWeight="700" color="$color">Earned Badges</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginHorizontal: -16 }}>
+                  <XStack space="$2" paddingRight={16}>
+                    {goals.filter(g => g.isCompleted).map((g) => (
+                      <View key={`badge-${g.id}`} backgroundColor="$accent" paddingHorizontal={12} paddingVertical={6} borderRadius={16} borderWidth={1} borderColor="$borderColor">
+                        <XStack alignItems="center" space={6}>
+                          <Trophy size={14} color="#0a0a0a" />
+                          <Text fontSize={12} fontWeight="600" color="#0a0a0a">🏆 {g.name}</Text>
+                        </XStack>
+                      </View>
+                    ))}
+                    {goals.filter(g => !g.isCompleted && g.currentAmount > 0).map((g) => (
+                      <View key={`streak-${g.id}`} backgroundColor="$warn" paddingHorizontal={12} paddingVertical={6} borderRadius={16} borderWidth={1} borderColor="$borderColor">
+                        <XStack alignItems="center" space={6}>
+                          <Text fontSize={12} fontWeight="600" color="#0a0a0a">🔥 Streak</Text>
+                        </XStack>
+                      </View>
+                    ))}
+                  </XStack>
+                </ScrollView>
+              </YStack>
+
+              {/* Goals List */}
+              {goals.map((goal, index) => {
+                const progress = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
+                const isCompleted = goal.isCompleted || progress >= 100;
+                const daysLeft = Math.ceil((new Date(goal.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                return (
+                  <Card key={goal.id}>
+                      <YStack space="$3">
+                        <XStack justifyContent="space-between" alignItems="center">
+                          <YStack>
+                            <Text fontSize="$6" fontWeight="700" color="$color">{goal.name}</Text>
+                            <Text fontSize="$3" color="$textDim">
+                              {daysLeft > 0 ? `${daysLeft} days left` : "Overdue"}
+                            </Text>
+                          </YStack>
+                          {isCompleted && <Trophy size={24} color="$success" />}
+                        </XStack>
+
+                        <YStack space="$2">
+                          <XStack justifyContent="space-between">
+                            <Text color="$textDim">
+                              {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
+                            </Text>
+                            <Text color="$textDim">{Math.round(progress)}%</Text>
+                          </XStack>
+                          <Progress value={progress} max={100} backgroundColor="$gray10" height={8} borderRadius={4}>
+                            <Progress.Indicator backgroundColor={isCompleted ? "$success" : progress >= 66 ? "$success" : progress >= 33 ? "$warn" : "$danger"} />
+                          </Progress>
+                        </YStack>
+
+                        <XStack space="$2" justifyContent="flex-end" flexWrap="wrap">
+                          <Button
+                            backgroundColor="$accent"
+                            color="#0a0a0a"
+                            onPress={() => handleAddMoney(goal)}
+                            borderRadius="$2"
+                            paddingHorizontal="$3"
+                            paddingVertical="$2"
+                            fontSize={14}
+                            disabled={isCompleted}
+                          >
+                            Add Money
+                          </Button>
+                          <Button
+                            backgroundColor="$primary"
+                            color="#ffffff"
+                            onPress={() => handleSimulate(goal)}
+                            borderRadius="$2"
+                            paddingHorizontal="$3"
+                            paddingVertical="$2"
+                            fontSize={14}
+                          >
+                            Simulate
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            borderColor="$primary"
+                            color="$primary"
+                            onPress={() => handleEditGoal(goal)}
+                            borderRadius="$2"
+                            paddingHorizontal="$3"
+                            paddingVertical="$2"
+                            fontSize={14}
+                          >
+                            Edit
+                          </Button>
+                        </XStack>
+                      </YStack>
+                    </Card>
+                );
+              })}
+            </>
           )}
 
           {/* Forecasts */}
@@ -776,6 +844,13 @@ export default function GoalsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* What-If Simulation Modal */}
+      <WhatIfModal
+        visible={showWhatIfModal}
+        onClose={() => setShowWhatIfModal(false)}
+        goal={selectedGoal}
+      />
     </View>
   );
 }
