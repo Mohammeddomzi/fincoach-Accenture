@@ -1,856 +1,537 @@
-import React, { useState, useEffect } from "react";
-import {
-  Alert,
-  Modal,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  TextInput,
-} from "react-native";
-import Slider from "@react-native-community/slider";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { View, Text } from "@tamagui/core";
-import { YStack, XStack } from "@tamagui/stacks";
-import { Button } from "@tamagui/button";
-import { Progress } from "@tamagui/progress";
-import { Animated } from "react-native";
-import { Trophy } from "@tamagui/lucide-icons";
-import { Goal } from "../../types";
-import { saveGoals, loadGoals } from "../../lib/ai";
-import ForecastCard from "../../components/ForecastCard";
-import { forecastSixMonths } from "../../lib/goals";
-import { formatCurrency } from "../../lib/currency";
-import GoalCard from "../../components/GoalCard";
-import EmptyIllustration from "../../components/EmptyIllustration";
-import Header from "../../src/components/ui/Header";
-import Card from "../../src/components/ui/Card";
-import GlowButton from "../../src/components/ui/GlowButton";
-import WhatIfModal from "../../components/WhatIfModal";
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, Modal, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { Input } from '../../components/ui/Input';
+import { ProgressBar } from '../../components/ui/ProgressBar';
+import { useAppStore } from '../../lib/state';
+import { formatCurrency, formatDate, calculateProgress, getProgressColor, getPriorityColor, getCategoryIcon, getTimeRemaining } from '../../lib/utils';
 
 export default function GoalsScreen() {
-  const [goals, setGoals] = useState<Goal[]>([]);
+  const { goals, addGoal, updateGoal, deleteGoal, completeGoal } = useAppStore();
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showAddMoneyModal, setShowAddMoneyModal] = useState(false);
-  const [showWhatIfModal, setShowWhatIfModal] = useState(false);
-  const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
-  const [addMoneyAmount, setAddMoneyAmount] = useState(0);
-  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    targetAmount: 10000,
-    currentAmount: 0,
+  const [newGoal, setNewGoal] = useState({
+    name: '',
+    description: '',
+    targetAmount: '',
+    currentAmount: '',
+    currency: 'SAR',
     deadline: new Date(),
-    type: "savings" as
-      | "emergency"
-      | "savings"
-      | "investment"
-      | "debt"
-      | "purchase"
-      | "other",
-    priority: "medium" as "low" | "medium" | "high",
+    priority: 'medium' as const,
+    category: 'savings' as const,
   });
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [tempDate, setTempDate] = useState(new Date());
-
-  useEffect(() => {
-    loadGoalsData();
-  }, []);
-
-  const loadGoalsData = async () => {
-    const loadedGoals = await loadGoals();
-    setGoals(loadedGoals);
-  };
 
   const handleAddGoal = () => {
-    setFormData({
-      name: "",
-      targetAmount: 10000,
-      currentAmount: 0,
+    if (!newGoal.name.trim()) {
+      Alert.alert('Error', 'Please enter a goal name');
+      return;
+    }
+
+    if (!newGoal.targetAmount || parseFloat(newGoal.targetAmount) <= 0) {
+      Alert.alert('Error', 'Please enter a valid target amount');
+      return;
+    }
+
+    addGoal({
+      name: newGoal.name.trim(),
+      description: newGoal.description.trim(),
+      targetAmount: parseFloat(newGoal.targetAmount),
+      currentAmount: parseFloat(newGoal.currentAmount) || 0,
+      currency: newGoal.currency,
+      deadline: newGoal.deadline,
+      priority: newGoal.priority,
+      category: newGoal.category,
+      isCompleted: false,
+    });
+
+    setNewGoal({
+      name: '',
+      description: '',
+      targetAmount: '',
+      currentAmount: '',
+      currency: 'SAR',
       deadline: new Date(),
-      type: "savings",
-      priority: "medium",
+      priority: 'medium',
+      category: 'savings',
     });
-    setEditingGoal(null);
-    setShowAddModal(true);
-    setShowDatePicker(false); // Ensure date picker is closed
-  };
-
-  const handleEditGoal = (goal: Goal) => {
-    setFormData({
-      name: goal.name,
-      targetAmount: goal.targetAmount,
-      currentAmount: goal.currentAmount,
-      deadline: new Date(goal.deadline),
-      type: goal.type || "savings",
-      priority: goal.priority || "medium",
-    });
-    setEditingGoal(goal);
-    setShowAddModal(true);
-    setShowDatePicker(false); // Ensure date picker is closed
-  };
-
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    console.log("Date picker event:", event.type, selectedDate);
-    console.log("Platform:", Platform.OS);
-
-    setShowDatePicker(false);
-
-    if (selectedDate) {
-      setFormData((prev) => ({ ...prev, deadline: selectedDate }));
-      console.log("Date updated to:", selectedDate);
-    }
-  };
-
-  const showDatePickerModal = () => {
-    console.log("Showing date picker");
-    setTempDate(formData.deadline);
-    setShowDatePicker(true);
-  };
-
-  const confirmDateSelection = () => {
-    setFormData((prev) => ({ ...prev, deadline: tempDate }));
-    setShowDatePicker(false);
-  };
-
-  const cancelDateSelection = () => {
-    setShowDatePicker(false);
-  };
-
-  const handleSaveGoal = () => {
-    console.log("handleSaveGoal called with:", formData);
-    console.log("Current date:", new Date());
-    console.log("Selected deadline:", formData.deadline);
-    console.log("Date comparison:", formData.deadline <= new Date());
-
-    if (!formData.name.trim()) {
-      Alert.alert("Error", "Please enter a goal name");
-      return;
-    }
-
-    if (formData.targetAmount <= 0) {
-      Alert.alert("Error", "Please set a valid target amount");
-      return;
-    }
-
-    // Allow today's date and future dates
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to start of day
-    const deadline = new Date(formData.deadline);
-    deadline.setHours(0, 0, 0, 0); // Reset time to start of day
-
-    if (!formData.deadline || deadline < today) {
-      Alert.alert("Error", "Please select today's date or a future date");
-      return;
-    }
-
-    const goalData: Goal = {
-      id: editingGoal?.id || Date.now().toString(),
-      name: formData.name.trim(),
-      targetAmount: formData.targetAmount,
-      currentAmount: formData.currentAmount,
-      deadline: formData.deadline,
-      createdAt: editingGoal?.createdAt || new Date(),
-      isCompleted: editingGoal?.isCompleted || false,
-      type: formData.type,
-      priority: formData.priority,
-    };
-
-    console.log("Creating goal:", goalData);
-
-    if (editingGoal) {
-      setGoals((prev) =>
-        prev.map((g) => (g.id === editingGoal.id ? goalData : g))
-      );
-    } else {
-      setGoals((prev) => [...prev, goalData]);
-    }
-
-    saveGoals(goals);
     setShowAddModal(false);
-    setFormData({
-      name: "",
-      targetAmount: 10000,
-      currentAmount: 0,
-      deadline: new Date(),
-      type: "savings",
-      priority: "medium",
-    });
+    Alert.alert('Success', 'Goal added successfully!');
   };
 
-  const handleDeleteGoal = (goal: Goal) => {
+  const handleCompleteGoal = (goalId: string) => {
     Alert.alert(
-      "Delete Goal",
-      `Are you sure you want to delete "${goal.name}"?`,
+      'Complete Goal',
+      'Are you sure you want to mark this goal as completed?',
       [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            setGoals((prev) => prev.filter((g) => g.id !== goal.id));
-            saveGoals(goals.filter((g) => g.id !== goal.id));
-          },
-        },
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Complete', onPress: () => completeGoal(goalId) },
       ]
     );
   };
 
-  const handleMarkComplete = (goal: Goal) => {
+  const handleDeleteGoal = (goalId: string) => {
     Alert.alert(
-      "Mark Complete",
-      `Are you sure you want to mark "${goal.name}" as complete?`,
+      'Delete Goal',
+      'Are you sure you want to delete this goal?',
       [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Complete",
-          onPress: () => {
-            const updatedGoal = { ...goal, isCompleted: true };
-            setGoals((prev) =>
-              prev.map((g) => (g.id === goal.id ? updatedGoal : g))
-            );
-            saveGoals(goals.map((g) => (g.id === goal.id ? updatedGoal : g)));
-          },
-        },
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => deleteGoal(goalId) },
       ]
     );
   };
 
-  const handleAddMoney = (goal: Goal) => {
-    setSelectedGoal(goal);
-    setAddMoneyAmount(0);
-    setShowAddMoneyModal(true);
-  };
-
-  const handleSimulate = (goal: Goal) => {
-    setSelectedGoal(goal);
-    setShowWhatIfModal(true);
-  };
-
-  const handleSaveAddMoney = () => {
-    if (!selectedGoal || addMoneyAmount <= 0) {
-      Alert.alert("Error", "Please enter a valid amount");
-      return;
+  const handleAddAmount = (goalId: string, amount: number) => {
+    const goal = goals.find(g => g.id === goalId);
+    if (goal) {
+      const newAmount = Math.min(goal.currentAmount + amount, goal.targetAmount);
+      updateGoal(goalId, { currentAmount: newAmount });
     }
-
-    const updatedGoals = goals.map((g) =>
-      g.id === selectedGoal.id
-        ? { ...g, currentAmount: g.currentAmount + addMoneyAmount }
-        : g
-    );
-
-    setGoals(updatedGoals);
-    saveGoals(updatedGoals);
-    setShowAddMoneyModal(false);
-    setSelectedGoal(null);
-    setAddMoneyAmount(0);
-
-    Alert.alert(
-      "Success",
-      `Added ${formatCurrency(addMoneyAmount)} to "${selectedGoal.name}"`
-    );
   };
+
+  if (goals.length === 0) {
+    return (
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.emptyContainer}>
+          <View style={styles.emptyState}>
+            <Ionicons name="trophy-outline" size={80} color="#6b7680" />
+            <Text style={styles.emptyTitle}>No Goals Yet</Text>
+            <Text style={styles.emptySubtitle}>
+              Start your financial journey by adding your first goal
+            </Text>
+            <Button
+              title="Add Your First Goal"
+              onPress={() => setShowAddModal(true)}
+              icon="add"
+              size="large"
+              style={styles.addButton}
+            />
+          </View>
+        </ScrollView>
+
+        {/* Add Goal Modal */}
+        <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet">
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add New Goal</Text>
+              <TouchableOpacity onPress={() => setShowAddModal(false)}>
+                <Ionicons name="close" size={24} color="#6b7680" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalContent}>
+              <Input
+                label="Goal Name"
+                value={newGoal.name}
+                onChangeText={(text) => setNewGoal({ ...newGoal, name: text })}
+                placeholder="e.g., Emergency Fund"
+              />
+
+              <Input
+                label="Description (Optional)"
+                value={newGoal.description}
+                onChangeText={(text) => setNewGoal({ ...newGoal, description: text })}
+                placeholder="Describe your goal..."
+                multiline
+                numberOfLines={3}
+              />
+
+              <Input
+                label="Target Amount"
+                value={newGoal.targetAmount}
+                onChangeText={(text) => setNewGoal({ ...newGoal, targetAmount: text })}
+                placeholder="10000"
+                keyboardType="numeric"
+                leftIcon="cash-outline"
+              />
+
+              <Input
+                label="Current Amount"
+                value={newGoal.currentAmount}
+                onChangeText={(text) => setNewGoal({ ...newGoal, currentAmount: text })}
+                placeholder="0"
+                keyboardType="numeric"
+                leftIcon="wallet-outline"
+              />
+
+              <View style={styles.modalActions}>
+                <Button
+                  title="Cancel"
+                  onPress={() => setShowAddModal(false)}
+                  variant="outline"
+                  style={styles.cancelButton}
+                />
+                <Button
+                  title="Add Goal"
+                  onPress={handleAddGoal}
+                  style={styles.addGoalButton}
+                />
+              </View>
+            </ScrollView>
+          </View>
+        </Modal>
+      </View>
+    );
+  }
 
   return (
-    <View flex={1} backgroundColor="$background">
-      <Header />
-      <ScrollView style={{ padding: 16 }}>
-        <YStack space="$4">
-          {goals.length === 0 ? (
-            <Card>
-              <YStack alignItems="center" space="$3">
-                <EmptyIllustration type="piggy" />
-                <Text fontSize="$6" fontWeight="800" color="$color" textAlign="center">
-                  Start your financial journey
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        {/* Goals Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Your Goals</Text>
+          <Button
+            title="Add Goal"
+            onPress={() => setShowAddModal(true)}
+            icon="add"
+            size="small"
+          />
+        </View>
+
+        {/* Goals List */}
+        {goals.map((goal) => {
+          const progress = calculateProgress(goal.currentAmount, goal.targetAmount);
+          const isCompleted = goal.isCompleted || progress >= 100;
+
+          return (
+            <Card key={goal.id} style={styles.goalCard} padding="large">
+              <View style={styles.goalHeader}>
+                <View style={styles.goalInfo}>
+                  <Text style={styles.goalName}>{goal.name}</Text>
+                  <Text style={styles.goalDescription}>{goal.description}</Text>
+                </View>
+                {isCompleted && (
+                  <Ionicons name="checkmark-circle" size={24} color="#34C759" />
+                )}
+              </View>
+
+              <View style={styles.goalDetails}>
+                <View style={styles.goalAmounts}>
+                  <Text style={styles.currentAmount}>
+                    {formatCurrency(goal.currentAmount, goal.currency)}
+                  </Text>
+                  <Text style={styles.targetAmount}>
+                    of {formatCurrency(goal.targetAmount, goal.currency)}
+                  </Text>
+                </View>
+
+                <View style={styles.goalMeta}>
+                  <View style={styles.goalCategory}>
+                    <Text style={styles.categoryIcon}>{getCategoryIcon(goal.category)}</Text>
+                    <Text style={styles.categoryText}>{goal.category}</Text>
+                  </View>
+                  <View style={styles.goalPriority}>
+                    <View style={[styles.priorityDot, { backgroundColor: getPriorityColor(goal.priority) }]} />
+                    <Text style={styles.priorityText}>{goal.priority}</Text>
+                  </View>
+                </View>
+              </View>
+
+              <ProgressBar
+                progress={progress}
+                color={getProgressColor(progress)}
+                style={styles.progressBar}
+              />
+
+              <View style={styles.goalFooter}>
+                <Text style={styles.deadlineText}>
+                  {getTimeRemaining(goal.deadline)}
                 </Text>
-                <Text fontSize="$4" color="$textDim" textAlign="center">
-                  Add your first goal to begin tracking progress and momentum.
+                <Text style={styles.deadlineDate}>
+                  {formatDate(goal.deadline)}
                 </Text>
-                <GlowButton onPress={handleAddGoal}>
-                  Add Goal
-                </GlowButton>
-              </YStack>
-            </Card>
-          ) : (
-            <>
-              {/* Badges Section */}
-              <YStack space="$2">
-                <Text fontSize="$5" fontWeight="700" color="$color">Earned Badges</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginHorizontal: -16 }}>
-                  <XStack space="$2" paddingRight={16}>
-                    {goals.filter(g => g.isCompleted).map((g) => (
-                      <View key={`badge-${g.id}`} backgroundColor="$accent" paddingHorizontal={12} paddingVertical={6} borderRadius={16} borderWidth={1} borderColor="$borderColor">
-                        <XStack alignItems="center" space={6}>
-                          <Trophy size={14} color="#0a0a0a" />
-                          <Text fontSize={12} fontWeight="600" color="#0a0a0a">🏆 {g.name}</Text>
-                        </XStack>
-                      </View>
-                    ))}
-                    {goals.filter(g => !g.isCompleted && g.currentAmount > 0).map((g) => (
-                      <View key={`streak-${g.id}`} backgroundColor="$warn" paddingHorizontal={12} paddingVertical={6} borderRadius={16} borderWidth={1} borderColor="$borderColor">
-                        <XStack alignItems="center" space={6}>
-                          <Text fontSize={12} fontWeight="600" color="#0a0a0a">🔥 Streak</Text>
-                        </XStack>
-                      </View>
-                    ))}
-                  </XStack>
-                </ScrollView>
-              </YStack>
+              </View>
 
-              {/* Goals List */}
-              {goals.map((goal, index) => {
-                const progress = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
-                const isCompleted = goal.isCompleted || progress >= 100;
-                const daysLeft = Math.ceil((new Date(goal.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                return (
-                  <Card key={goal.id}>
-                      <YStack space="$3">
-                        <XStack justifyContent="space-between" alignItems="center">
-                          <YStack>
-                            <Text fontSize="$6" fontWeight="700" color="$color">{goal.name}</Text>
-                            <Text fontSize="$3" color="$textDim">
-                              {daysLeft > 0 ? `${daysLeft} days left` : "Overdue"}
-                            </Text>
-                          </YStack>
-                          {isCompleted && <Trophy size={24} color="$success" />}
-                        </XStack>
-
-                        <YStack space="$2">
-                          <XStack justifyContent="space-between">
-                            <Text color="$textDim">
-                              {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
-                            </Text>
-                            <Text color="$textDim">{Math.round(progress)}%</Text>
-                          </XStack>
-                          <Progress value={progress} max={100} backgroundColor="$gray10" height={8} borderRadius={4}>
-                            <Progress.Indicator backgroundColor={isCompleted ? "$success" : progress >= 66 ? "$success" : progress >= 33 ? "$warn" : "$danger"} />
-                          </Progress>
-                        </YStack>
-
-                        <XStack space="$2" justifyContent="flex-end" flexWrap="wrap">
-                          <Button
-                            backgroundColor="$accent"
-                            color="#0a0a0a"
-                            onPress={() => handleAddMoney(goal)}
-                            borderRadius="$2"
-                            paddingHorizontal="$3"
-                            paddingVertical="$2"
-                            fontSize={14}
-                            disabled={isCompleted}
-                          >
-                            Add Money
-                          </Button>
-                          <Button
-                            backgroundColor="$primary"
-                            color="#ffffff"
-                            onPress={() => handleSimulate(goal)}
-                            borderRadius="$2"
-                            paddingHorizontal="$3"
-                            paddingVertical="$2"
-                            fontSize={14}
-                          >
-                            Simulate
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            borderColor="$primary"
-                            color="$primary"
-                            onPress={() => handleEditGoal(goal)}
-                            borderRadius="$2"
-                            paddingHorizontal="$3"
-                            paddingVertical="$2"
-                            fontSize={14}
-                          >
-                            Edit
-                          </Button>
-                        </XStack>
-                      </YStack>
-                    </Card>
-                );
-              })}
-            </>
-          )}
-
-          {/* Forecasts */}
-          {goals.length > 0 && (
-            <YStack space="$3">
-              <Text fontSize="$6" fontWeight="bold" color="$color">
-                Predictive Insights
-              </Text>
-              {goals.slice(0, 3).map((g) => {
-                const f = forecastSixMonths(g);
-                return (
-                  <ForecastCard
-                    key={`forecast-${g.id}`}
-                    title={`If you continue at this pace, you’ll save`}
-                    amountLabel={`SAR ${Math.round(f.sixMonthSavings).toLocaleString()}`}
-                    timeframeLabel={`in 6 months (~SAR ${Math.round(f.pacePerMonth).toLocaleString()}/mo)`}
+              {!isCompleted && (
+                <View style={styles.goalActions}>
+                  <Button
+                    title="+100"
+                    onPress={() => handleAddAmount(goal.id, 100)}
+                    size="small"
+                    variant="outline"
+                    style={styles.quickAddButton}
                   />
-                );
-              })}
-            </YStack>
-          )}
-        </YStack>
+                  <Button
+                    title="+500"
+                    onPress={() => handleAddAmount(goal.id, 500)}
+                    size="small"
+                    variant="outline"
+                    style={styles.quickAddButton}
+                  />
+                  <Button
+                    title="Complete"
+                    onPress={() => handleCompleteGoal(goal.id)}
+                    size="small"
+                    style={styles.completeButton}
+                  />
+                  <Button
+                    title="Delete"
+                    onPress={() => handleDeleteGoal(goal.id)}
+                    size="small"
+                    variant="ghost"
+                    style={styles.deleteButton}
+                  />
+                </View>
+              )}
+            </Card>
+          );
+        })}
       </ScrollView>
 
-      {/* Add/Edit Goal Modal */}
-      <Modal
-        visible={showAddModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => {
-          setShowAddModal(false);
-          setShowDatePicker(false); // Close date picker when modal closes
-        }}
-      >
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-        >
-          <View flex={1} backgroundColor="$background" style={{ padding: 16 }}>
-            <YStack space="$4" flex={1}>
-              <XStack justifyContent="space-between" alignItems="center">
-                <Text fontSize="$7" fontWeight="bold" color="$color">
-                  {editingGoal ? "Edit Goal" : "Add New Goal"}
-                </Text>
-                <Button
-                  variant="outlined"
-                  borderColor="$gray8"
-                  color="$gray11"
-                  onPress={() => {
-                    setShowAddModal(false);
-                    setShowDatePicker(false); // Close date picker when canceling
-                  }}
-                  borderRadius="$3"
-                  paddingHorizontal="$4"
-                  paddingVertical="$3"
-                >
-                  Cancel
-                </Button>
-              </XStack>
+      {/* Add Goal Modal */}
+      <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Add New Goal</Text>
+            <TouchableOpacity onPress={() => setShowAddModal(false)}>
+              <Ionicons name="close" size={24} color="#6b7680" />
+            </TouchableOpacity>
+          </View>
 
-              <YStack space="$3">
-                <YStack space="$2">
-                  <Text color="$color">Goal Name *</Text>
-                  <TextInput
-                    value={formData.name}
-                    onChangeText={(text) =>
-                      setFormData((prev) => ({ ...prev, name: text }))
-                    }
-                    placeholder="e.g., Emergency Fund"
-                    style={{
-                      backgroundColor: "#1a1a1a",
-                      color: "white",
-                      padding: 12,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: "#333",
-                    }}
-                  />
-                </YStack>
+          <ScrollView style={styles.modalContent}>
+            <Input
+              label="Goal Name"
+              value={newGoal.name}
+              onChangeText={(text) => setNewGoal({ ...newGoal, name: text })}
+              placeholder="e.g., Emergency Fund"
+            />
 
-                <YStack space="$2">
-                  <Text color="$color">Goal Type *</Text>
-                  <XStack space="$2" flexWrap="wrap">
-                    {[
-                      "emergency",
-                      "savings",
-                      "investment",
-                      "debt",
-                      "purchase",
-                      "other",
-                    ].map((type) => (
-                      <Button
-                        key={type}
-                        backgroundColor={
-                          formData.type === type ? "$blue9" : "$gray8"
-                        }
-                        color={formData.type === type ? "white" : "$color"}
-                        onPress={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            type: type as any,
-                          }))
-                        }
-                        borderRadius="$3"
-                        paddingHorizontal="$3"
-                        paddingVertical="$2"
-                        marginBottom="$2"
-                        width="30%"
-                      >
-                        {type.charAt(0).toUpperCase() + type.slice(1)}
-                      </Button>
-                    ))}
-                  </XStack>
-                </YStack>
+            <Input
+              label="Description (Optional)"
+              value={newGoal.description}
+              onChangeText={(text) => setNewGoal({ ...newGoal, description: text })}
+              placeholder="Describe your goal..."
+              multiline
+              numberOfLines={3}
+            />
 
-                <YStack space="$2">
-                  <Text color="$color">Priority *</Text>
-                  <XStack space="$3">
-                    {[
-                      { value: "low", label: "Low", color: "$green9" },
-                      { value: "medium", label: "Medium", color: "$yellow9" },
-                      { value: "high", label: "High", color: "$red9" },
-                    ].map((priority) => (
-                      <Button
-                        key={priority.value}
-                        backgroundColor={
-                          formData.priority === priority.value
-                            ? priority.color
-                            : "$gray8"
-                        }
-                        color={
-                          formData.priority === priority.value
-                            ? "white"
-                            : "$color"
-                        }
-                        onPress={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            priority: priority.value as any,
-                          }))
-                        }
-                        borderRadius="$3"
-                        paddingHorizontal="$4"
-                        paddingVertical="$3"
-                        flex={1}
-                      >
-                        {priority.label}
-                      </Button>
-                    ))}
-                  </XStack>
-                </YStack>
+            <Input
+              label="Target Amount"
+              value={newGoal.targetAmount}
+              onChangeText={(text) => setNewGoal({ ...newGoal, targetAmount: text })}
+              placeholder="10000"
+              keyboardType="numeric"
+              leftIcon="cash-outline"
+            />
 
-                <YStack space="$2">
-                  <Text color="$color">Target Amount *</Text>
-                  <View backgroundColor="$gray8" padding="$3" borderRadius="$3">
-                    <Text
-                      color="$color"
-                      fontSize="$5"
-                      fontWeight="600"
-                      textAlign="center"
-                    >
-                      {formatCurrency(formData.targetAmount)}
-                    </Text>
-                    <Slider
-                      style={{ width: "100%", height: 40 }}
-                      minimumValue={1000}
-                      maximumValue={100000}
-                      step={1000}
-                      value={formData.targetAmount}
-                      onValueChange={(value) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          targetAmount: value,
-                        }))
-                      }
-                      minimumTrackTintColor="#007AFF"
-                      maximumTrackTintColor="#333333"
-                    />
-                    <XStack justifyContent="space-between" marginTop="$2">
-                      <Text color="$gray11" fontSize="$3">
-                        $1K
-                      </Text>
-                      <Text color="$gray11" fontSize="$3">
-                        $100K
-                      </Text>
-                    </XStack>
-                  </View>
-                </YStack>
+            <Input
+              label="Current Amount"
+              value={newGoal.currentAmount}
+              onChangeText={(text) => setNewGoal({ ...newGoal, currentAmount: text })}
+              placeholder="0"
+              keyboardType="numeric"
+              leftIcon="wallet-outline"
+            />
 
-                <YStack space="$2">
-                  <Text color="$color">Current Amount</Text>
-                  <View backgroundColor="$gray8" padding="$3" borderRadius="$3">
-                    <Text
-                      color="$color"
-                      fontSize="$5"
-                      fontWeight="600"
-                      textAlign="center"
-                    >
-                      {formatCurrency(formData.currentAmount)}
-                    </Text>
-                    <Slider
-                      style={{ width: "100%", height: 40 }}
-                      minimumValue={0}
-                      maximumValue={formData.targetAmount}
-                      step={100}
-                      value={formData.currentAmount}
-                      onValueChange={(value) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          currentAmount: value,
-                        }))
-                      }
-                      minimumTrackTintColor="#34C759"
-                      maximumTrackTintColor="#333333"
-                    />
-                    <XStack justifyContent="space-between" marginTop="$2">
-                      <Text color="$gray11" fontSize="$3">
-                        $0
-                      </Text>
-                      <Text color="$gray11" fontSize="$3">
-                        {formatCurrency(formData.targetAmount)}
-                      </Text>
-                    </XStack>
-                  </View>
-                </YStack>
-
-                <YStack space="$2">
-                  <Text color="$color">Deadline *</Text>
-                  <Button
-                    backgroundColor="$gray8"
-                    color="$color"
-                    onPress={() => {
-                      console.log("Date picker button pressed");
-                      console.log(
-                        "Current showDatePicker state:",
-                        showDatePicker
-                      );
-                      showDatePickerModal();
-                    }}
-                    borderRadius="$3"
-                    paddingHorizontal="$4"
-                    paddingVertical="$3"
-                    borderWidth={1}
-                    borderColor="$borderColor"
-                  >
-                    📅 {formData.deadline.toLocaleDateString()}
-                  </Button>
-
-                  {/* Date Picker inside modal */}
-                  {showDatePicker &&
-                    (Platform.OS === "web" ? (
-                      <View
-                        backgroundColor="$gray8"
-                        padding="$3"
-                        borderRadius="$3"
-                      >
-                        <Text color="$color" fontSize="$4" marginBottom="$2">
-                          Select Date:
-                        </Text>
-                        <input
-                          type="date"
-                          value={tempDate.toISOString().split("T")[0]}
-                          onChange={(e) => {
-                            console.log(
-                              "Web date picker changed:",
-                              e.target.value
-                            );
-                            const date = new Date(e.target.value);
-                            console.log("Parsed date:", date);
-                            if (!isNaN(date.getTime())) {
-                              setTempDate(date);
-                              console.log("Temp date updated to:", date);
-                            }
-                          }}
-                          style={{
-                            backgroundColor: "#1a1a1a",
-                            color: "white",
-                            padding: "12px",
-                            borderRadius: "8px",
-                            border: "1px solid #333",
-                            fontSize: "16px",
-                            width: "100%",
-                            outline: "none",
-                          }}
-                        />
-                        <XStack
-                          space="$3"
-                          justifyContent="center"
-                          marginTop="$3"
-                        >
-                          <Button
-                            backgroundColor="$red9"
-                            color="white"
-                            onPress={() => setShowDatePicker(false)}
-                            borderRadius="$3"
-                            paddingHorizontal="$4"
-                            paddingVertical="$3"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            backgroundColor="$blue9"
-                            color="white"
-                            onPress={() => {
-                              console.log("Web date picker confirm pressed");
-                              console.log("Temp date:", tempDate);
-                              setFormData((prev) => ({
-                                ...prev,
-                                deadline: tempDate,
-                              }));
-                              console.log(
-                                "Form data updated with deadline:",
-                                tempDate
-                              );
-                              setShowDatePicker(false);
-                            }}
-                            borderRadius="$3"
-                            paddingHorizontal="$4"
-                            paddingVertical="$3"
-                          >
-                            Confirm
-                          </Button>
-                        </XStack>
-                      </View>
-                    ) : (
-                      <DateTimePicker
-                        value={tempDate}
-                        mode="date"
-                        display={Platform.OS === "ios" ? "spinner" : "default"}
-                        onChange={handleDateChange}
-                        minimumDate={new Date()}
-                      />
-                    ))}
-                </YStack>
-              </YStack>
-
+            <View style={styles.modalActions}>
               <Button
-                backgroundColor="$blue9"
-                color="white"
-                onPress={() => {
-                  console.log("Add Goal button pressed - starting validation");
-                  console.log("Form data:", formData);
-                  handleSaveGoal();
-                }}
-                marginTop="auto"
-                borderRadius="$3"
-                paddingHorizontal="$4"
-                paddingVertical="$3"
-                disabled={false}
-              >
-                {editingGoal ? "Update Goal" : "Add Goal"}
-              </Button>
-            </YStack>
-          </View>
-        </KeyboardAvoidingView>
+                title="Cancel"
+                onPress={() => setShowAddModal(false)}
+                variant="outline"
+                style={styles.cancelButton}
+              />
+              <Button
+                title="Add Goal"
+                onPress={handleAddGoal}
+                style={styles.addGoalButton}
+              />
+            </View>
+          </ScrollView>
+        </View>
       </Modal>
-
-      {/* Add Money Modal */}
-      <Modal
-        visible={showAddMoneyModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowAddMoneyModal(false)}
-      >
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-        >
-          <View flex={1} backgroundColor="$background" style={{ padding: 16 }}>
-            <YStack space="$4" flex={1}>
-              <XStack justifyContent="space-between" alignItems="center">
-                <Text fontSize="$7" fontWeight="bold" color="$color">
-                  Add Money to Goal
-                </Text>
-                <Button
-                  variant="outlined"
-                  borderColor="$gray8"
-                  color="$gray11"
-                  onPress={() => setShowAddMoneyModal(false)}
-                  borderRadius="$3"
-                  paddingHorizontal="$4"
-                  paddingVertical="$3"
-                >
-                  Cancel
-                </Button>
-              </XStack>
-
-              {selectedGoal && (
-                <YStack space="$3">
-                  <View backgroundColor="$gray8" padding="$4" borderRadius="$4">
-                    <Text
-                      fontSize="$5"
-                      fontWeight="bold"
-                      color="$color"
-                      marginBottom="$2"
-                    >
-                      {selectedGoal.name}
-                    </Text>
-                    <XStack justifyContent="space-between" marginBottom="$2">
-                      <Text color="$gray11">Current Amount:</Text>
-                      <Text color="$color" fontWeight="600">
-                        {formatCurrency(selectedGoal.currentAmount)}
-                      </Text>
-                    </XStack>
-                    <XStack justifyContent="space-between">
-                      <Text color="$gray11">Target Amount:</Text>
-                      <Text color="$color" fontWeight="600">
-                        {formatCurrency(selectedGoal.targetAmount)}
-                      </Text>
-                    </XStack>
-                  </View>
-
-                  <YStack space="$2">
-                    <Text color="$color">Amount to Add *</Text>
-                    <View
-                      backgroundColor="$gray8"
-                      padding="$3"
-                      borderRadius="$3"
-                    >
-                      <Text
-                        color="$color"
-                        fontSize="$5"
-                        fontWeight="600"
-                        textAlign="center"
-                      >
-                        {formatCurrency(addMoneyAmount)}
-                      </Text>
-                      <Slider
-                        style={{ width: "100%", height: 40 }}
-                        minimumValue={0}
-                        maximumValue={Math.min(
-                          selectedGoal.targetAmount -
-                            selectedGoal.currentAmount,
-                          50000
-                        )}
-                        step={100}
-                        value={addMoneyAmount}
-                        onValueChange={(value) => setAddMoneyAmount(value)}
-                        minimumTrackTintColor="#34C759"
-                        maximumTrackTintColor="#333333"
-                      />
-                      <XStack justifyContent="space-between" marginTop="$2">
-                        <Text color="$gray11" fontSize="$3">
-                          $0
-                        </Text>
-                        <Text color="$gray11" fontSize="$3">
-                          {formatCurrency(
-                            Math.min(
-                              selectedGoal.targetAmount -
-                                selectedGoal.currentAmount,
-                              50000
-                            )
-                          )}
-                        </Text>
-                      </XStack>
-                    </View>
-                  </YStack>
-
-                  <Button
-                    backgroundColor="$green9"
-                    color="white"
-                    onPress={handleSaveAddMoney}
-                    marginTop="auto"
-                    borderRadius="$3"
-                    paddingHorizontal="$4"
-                    paddingVertical="$3"
-                    disabled={addMoneyAmount <= 0}
-                  >
-                    Add {formatCurrency(addMoneyAmount)}
-                  </Button>
-                </YStack>
-              )}
-            </YStack>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* What-If Simulation Modal */}
-      <WhatIfModal
-        visible={showWhatIfModal}
-        onClose={() => setShowWhatIfModal(false)}
-        goal={selectedGoal}
-      />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0a0a0a',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyState: {
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: '#6b7680',
+    textAlign: 'center',
+    marginBottom: 30,
+    lineHeight: 24,
+  },
+  addButton: {
+    minWidth: 200,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  goalCard: {
+    marginBottom: 16,
+  },
+  goalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  goalInfo: {
+    flex: 1,
+  },
+  goalName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  goalDescription: {
+    fontSize: 14,
+    color: '#6b7680',
+    lineHeight: 20,
+  },
+  goalDetails: {
+    marginBottom: 16,
+  },
+  goalAmounts: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 8,
+  },
+  currentAmount: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#4f7f8c',
+  },
+  targetAmount: {
+    fontSize: 16,
+    color: '#6b7680',
+    marginLeft: 8,
+  },
+  goalMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  goalCategory: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  categoryIcon: {
+    fontSize: 16,
+  },
+  categoryText: {
+    fontSize: 14,
+    color: '#6b7680',
+    textTransform: 'capitalize',
+  },
+  goalPriority: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  priorityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  priorityText: {
+    fontSize: 14,
+    color: '#6b7680',
+    textTransform: 'capitalize',
+  },
+  progressBar: {
+    marginBottom: 12,
+  },
+  goalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  deadlineText: {
+    fontSize: 14,
+    color: '#6b7680',
+  },
+  deadlineDate: {
+    fontSize: 14,
+    color: '#6b7680',
+  },
+  goalActions: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  quickAddButton: {
+    flex: 1,
+    minWidth: 60,
+  },
+  completeButton: {
+    flex: 1,
+    minWidth: 80,
+  },
+  deleteButton: {
+    flex: 1,
+    minWidth: 60,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#0a0a0a',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2b2f33',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  modalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  cancelButton: {
+    flex: 1,
+  },
+  addGoalButton: {
+    flex: 1,
+  },
+});

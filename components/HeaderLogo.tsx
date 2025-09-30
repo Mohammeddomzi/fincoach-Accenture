@@ -6,7 +6,7 @@ export default function HeaderLogo() {
   return (
     <View style={{ flexDirection: "row", alignItems: "center" }}>
       <Logo width={28} height={28} />
-      <Text style={{ color: "#27566a", fontWeight: "800", fontSize: 18, marginLeft: 8 }}>
+      <Text style={{ color: "$primary", fontWeight: "800", fontSize: 18, marginLeft: 8 }}>
         FinCoach
       </Text>
     </View>

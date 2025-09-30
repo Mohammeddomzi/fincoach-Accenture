@@ -5,8 +5,8 @@ module.exports = function (api) {
       'babel-preset-expo',
     ],
     plugins: [
-      'expo-router/babel',
-      '@tamagui/babel-plugin',
+      // 'expo-router/babel', // Deprecated in SDK 50, using babel-preset-expo instead
+      // '@tamagui/babel-plugin', // Temporarily disabled due to parse errors
       // Reanimated plugin MUST be last
       'react-native-reanimated/plugin',
     ],

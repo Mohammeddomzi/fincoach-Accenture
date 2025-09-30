@@ -22,10 +22,14 @@ export default function GlowButton({ children, onPress, disabled }: GlowButtonPr
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         backgroundColor="$accent"
-        color="#ffffff"
+        color="$color"
         borderRadius="$3"
         paddingHorizontal="$4"
         paddingVertical="$3"
+        minHeight={44}
+        accessibilityRole="button"
+        accessibilityLabel={typeof children === 'string' ? children : 'Button'}
+        accessibilityHint="Double tap to activate"
       >
         {children}
       </Button>

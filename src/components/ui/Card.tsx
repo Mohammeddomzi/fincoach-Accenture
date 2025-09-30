@@ -17,6 +17,7 @@ export default function Card({ children, padded = true }: CardProps) {
       shadowOpacity={0.15}
       shadowRadius={12}
       shadowOffset={{ width: 0, height: 6 }}
+      accessibilityRole="summary"
     >
       {children}
     </View>
