@@ -24,7 +24,7 @@ const config: ExpoConfig = {
     // },
   },
   web: {
-    output: "static",
+    output: "server",
     bundler: "metro",
   },
   plugins: [

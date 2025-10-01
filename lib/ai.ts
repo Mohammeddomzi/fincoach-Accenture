@@ -227,7 +227,17 @@ export const sendChatMessage = async (
 
     // Web version - use actual API
     console.log("Using web API");
-    const response = await fetch("/api/chat", {
+    
+    // Determine API URL based on environment
+    const isProduction = process.env.NODE_ENV === 'production';
+    const baseUrl = isProduction 
+      ? process.env.EXPO_PUBLIC_API_BASE_URL || window.location.origin
+      : '';
+    
+    const apiUrl = `${baseUrl}/api/chat`;
+    console.log("API URL:", apiUrl);
+    
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

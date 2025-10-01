@@ -1,3 +1,107 @@
+// Fallback response function for when API is unavailable
+function getFallbackResponse(message: string, settings?: any): string {
+  const currency = settings?.currency || 'SAR';
+  const lowerMessage = message.toLowerCase();
+  
+  if (lowerMessage.includes('budget') || lowerMessage.includes('spending')) {
+    return `Here's a simple budgeting approach for ${currency}:
+
+• **50/30/20 Rule**: 50% needs, 30% wants, 20% savings
+• **Track expenses** for 30 days to understand spending patterns
+• **Set monthly limits** for each category
+• **Use apps** to monitor transactions automatically
+
+**30-Day Plan:**
+1. Week 1: Track all expenses
+2. Week 2: Categorize spending
+3. Week 3: Set realistic limits
+4. Week 4: Adjust and optimize
+
+*Educational purposes, not financial advice.*`;
+  }
+  
+  if (lowerMessage.includes('save') || lowerMessage.includes('emergency')) {
+    return `Emergency fund strategy for ${currency}:
+
+• **Start small**: Aim for 1,000 ${currency} initially
+• **Build gradually**: Target 3-6 months of expenses
+• **High-yield savings**: Keep in accessible account
+• **Automate transfers**: Set up monthly contributions
+
+**30-Day Plan:**
+1. Calculate monthly expenses
+2. Open dedicated savings account
+3. Set up automatic transfers
+4. Track progress weekly
+
+*Educational purposes, not financial advice.*`;
+  }
+  
+  if (lowerMessage.includes('debt') || lowerMessage.includes('loan')) {
+    return `Debt reduction strategy for ${currency}:
+
+• **List all debts**: Amounts, interest rates, minimum payments
+• **Choose method**: Snowball (smallest first) or Avalanche (highest interest)
+• **Pay more than minimum**: Even 50 ${currency} extra helps
+• **Avoid new debt**: Pause non-essential spending
+
+**30-Day Plan:**
+1. Create debt inventory
+2. Choose payoff strategy
+3. Increase payments where possible
+4. Monitor progress monthly
+
+*Educational purposes, not financial advice.*`;
+  }
+  
+  if (lowerMessage.includes('invest') || lowerMessage.includes('stock')) {
+    return `Investment basics for ${currency}:
+
+• **Start with education**: Learn before investing
+• **Diversify**: Don't put all money in one place
+• **Long-term focus**: Think 5+ years
+• **Consider index funds**: Lower risk, steady growth
+
+**30-Day Plan:**
+1. Research investment options
+2. Start with small amounts
+3. Use dollar-cost averaging
+4. Review quarterly
+
+*Educational purposes, not financial advice.*`;
+  }
+  
+  if (lowerMessage.includes('goal') || lowerMessage.includes('target')) {
+    return `Goal setting for ${currency}:
+
+• **SMART goals**: Specific, Measurable, Achievable, Relevant, Time-bound
+• **Break down large goals**: Monthly/weekly targets
+• **Track progress**: Regular check-ins
+• **Celebrate milestones**: Stay motivated
+
+**30-Day Plan:**
+1. Define your financial goals
+2. Set specific amounts and deadlines
+3. Create action plan
+4. Start taking steps
+
+*Educational purposes, not financial advice.*`;
+  }
+  
+  // Default response
+  return `I'm here to help with your financial questions! I can assist with:
+
+• **Budgeting** and expense tracking
+• **Emergency fund** planning
+• **Debt reduction** strategies
+• **Investment** basics
+• **Goal setting** and planning
+
+Please ask me about any of these topics, and I'll provide practical advice in ${currency}.
+
+*Educational purposes, not financial advice.*`;
+}
+
 export async function POST(req: Request): Promise<Response> {
   try {
     const { message, settings, stream: requestStream } = await req.json();
@@ -9,14 +113,44 @@ export async function POST(req: Request): Promise<Response> {
       return new Response("Message is required", { status: 400 });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    // Get API key from environment or use fallback
+    const apiKey = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY;
 
     console.log("API Key exists:", !!apiKey);
 
+    // If no API key, return fallback response
     if (!apiKey) {
-      console.error("OpenAI API key not configured");
-
-      return new Response("OpenAI API key not configured", { status: 500 });
+      console.log("No API key found, using fallback response");
+      
+      const fallbackResponse = getFallbackResponse(message, settings);
+      
+      if (requestStream !== false) {
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              let i = 0;
+              const interval = setInterval(() => {
+                if (i < fallbackResponse.length) {
+                  controller.enqueue(new TextEncoder().encode(fallbackResponse[i]));
+                  i++;
+                } else {
+                  clearInterval(interval);
+                  controller.close();
+                }
+              }, 20);
+            },
+          }),
+          {
+            headers: {
+              "Content-Type": "text/plain; charset=utf-8",
+            },
+          }
+        );
+      } else {
+        return new Response(JSON.stringify({ content: fallbackResponse }), {
+          headers: { "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Use settings if provided, otherwise default to SAR/en-SA
