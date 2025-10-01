@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { SimpleStorage } from './simpleStorage';
-import { Goal, Transaction, AnalysisData, UserProfile, ChatMessage, AppSettings, ForecastData } from './types';
+import { Goal, Transaction, AnalysisData, UserProfile, ChatMessage, AppSettings, ForecastData, CommunityPost, CommunityComment } from './types';
 
 interface AppState {
   // User Profile
@@ -37,6 +37,14 @@ interface AppState {
   forecastData: ForecastData | null;
   setForecastData: (data: ForecastData) => void;
   
+  // Community
+  communityPosts: CommunityPost[];
+  communityComments: CommunityComment[];
+  addCommunityPost: (post: Omit<CommunityPost, 'id' | 'createdAt'>) => void;
+  addCommunityComment: (comment: Omit<CommunityComment, 'id' | 'createdAt'>) => void;
+  likePost: (postId: string) => void;
+  likeComment: (commentId: string) => void;
+  
   // App State
   isLoading: boolean;
   setLoading: (loading: boolean) => void;
@@ -53,6 +61,7 @@ interface AppState {
 const defaultSettings: AppSettings = {
   theme: 'system',
   currency: 'SAR',
+  language: 'en',
   notifications: true,
   biometricAuth: false,
   dataExport: true,
@@ -78,6 +87,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
       chatMessages: [],
       settings: defaultSettings,
       forecastData: null,
+      communityPosts: [],
+      communityComments: [],
       isLoading: false,
       error: null,
 
@@ -178,6 +189,41 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
       // Forecast Actions
       setForecastData: (data) => set({ forecastData: data }),
+
+      // Community Actions
+      addCommunityPost: (postData) => {
+        const newPost: CommunityPost = {
+          ...postData,
+          id: `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          createdAt: new Date(),
+        };
+        set((state) => ({ communityPosts: [...state.communityPosts, newPost] }));
+      },
+
+      addCommunityComment: (commentData) => {
+        const newComment: CommunityComment = {
+          ...commentData,
+          id: `comment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          createdAt: new Date(),
+        };
+        set((state) => ({ communityComments: [...state.communityComments, newComment] }));
+      },
+
+      likePost: (postId) => {
+        set((state) => ({
+          communityPosts: state.communityPosts.map((post) =>
+            post.id === postId ? { ...post, likes: post.likes + 1 } : post
+          ),
+        }));
+      },
+
+      likeComment: (commentId) => {
+        set((state) => ({
+          communityComments: state.communityComments.map((comment) =>
+            comment.id === commentId ? { ...comment, likes: comment.likes + 1 } : comment
+          ),
+        }));
+      },
 
       // App State Actions
       setLoading: (loading) => set({ isLoading: loading }),

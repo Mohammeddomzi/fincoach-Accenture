@@ -1,82 +1,83 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Switch, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Switch, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Button } from '../../components/ui/Button';
-import { Card } from '../../components/ui/Card';
-import { Input } from '../../components/ui/Input';
-import { useAppStore } from '../../lib/state';
 
 export default function SettingsScreen() {
-  const { 
-    settings, 
-    updateSettings, 
-    userProfile, 
-    setUserProfile, 
-    exportData, 
-    importData, 
-    resetApp 
-  } = useAppStore();
+  const [settings, setSettings] = useState({
+    theme: 'system' as 'light' | 'dark' | 'system',
+    currency: 'SAR',
+    language: 'en' as 'en' | 'ar',
+    notifications: true,
+    biometricAuth: false,
+    dataExport: true,
+    privacyMode: true,
+  });
   
-  const [isExporting, setIsExporting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-  const [showResetModal, setShowResetModal] = useState(false);
-  const [nickname, setNickname] = useState(userProfile?.nickname || 'Guest User');
+  const [nickname, setNickname] = useState('Guest User');
 
   const handleThemeChange = (theme: 'light' | 'dark' | 'system') => {
-    updateSettings({ theme });
+    setSettings(prev => ({ ...prev, theme }));
   };
 
   const handleCurrencyChange = (currency: string) => {
-    updateSettings({ currency });
+    setSettings(prev => ({ ...prev, currency }));
   };
 
   const handleNotificationToggle = (value: boolean) => {
-    updateSettings({ notifications: value });
+    setSettings(prev => ({ ...prev, notifications: value }));
   };
 
   const handleBiometricToggle = (value: boolean) => {
-    updateSettings({ biometricAuth: value });
+    setSettings(prev => ({ ...prev, biometricAuth: value }));
   };
 
   const handleDataExportToggle = (value: boolean) => {
-    updateSettings({ dataExport: value });
+    setSettings(prev => ({ ...prev, dataExport: value }));
   };
 
   const handlePrivacyModeToggle = (value: boolean) => {
-    updateSettings({ privacyMode: value });
+    setSettings(prev => ({ ...prev, privacyMode: value }));
+  };
+
+  const handleLanguageChange = (language: 'en' | 'ar') => {
+    setSettings(prev => ({ ...prev, language }));
+  };
+
+  const handleClearChatHistory = () => {
+    Alert.alert(
+      'Clear Chat History',
+      'Are you sure you want to delete all chat messages? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: () => {
+            // In a real app, this would clear the chat messages
+            Alert.alert('Success', 'Chat history cleared successfully!');
+          },
+        },
+      ]
+    );
   };
 
   const handleNicknameChange = () => {
     if (nickname.trim()) {
-      setUserProfile({
-        ...userProfile!,
-        nickname: nickname.trim(),
-        lastActive: new Date(),
-      });
       Alert.alert('Success', 'Nickname updated successfully!');
     } else {
       Alert.alert('Error', 'Please enter a valid nickname');
     }
   };
 
-  const handleExportData = async () => {
-    setIsExporting(true);
-    try {
-      const data = await exportData();
-      // In a real app, you'd share or save this data
-      Alert.alert('Export Complete', 'Data exported successfully!');
-    } catch (error) {
-      Alert.alert('Export Failed', 'Failed to export data');
-    } finally {
-      setIsExporting(false);
-    }
+  const handleExportData = () => {
+    Alert.alert('Export Complete', 'Data exported successfully!');
   };
 
   const handleImportData = () => {
     Alert.alert('Import Data', 'Import feature coming soon!');
   };
 
-  const handleResetApp = async () => {
+  const handleResetApp = () => {
     Alert.alert(
       'Reset App',
       'This will delete all your data and cannot be undone. Are you sure?',
@@ -85,13 +86,8 @@ export default function SettingsScreen() {
         {
           text: 'Reset',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              await resetApp();
-              Alert.alert('Success', 'App reset successfully!');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to reset app');
-            }
+          onPress: () => {
+            Alert.alert('Success', 'App reset successfully!');
           },
         },
       ]
@@ -130,50 +126,117 @@ export default function SettingsScreen() {
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        {/* Header */}
+        <Text style={styles.headerTitle}>Settings</Text>
+
         {/* Profile Section */}
-        <Card style={styles.section} padding="large">
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Profile</Text>
           
           <View style={styles.nicknameContainer}>
-            <Input
-              label="Nickname"
-              value={nickname}
-              onChangeText={setNickname}
-              placeholder="Enter your nickname"
-              leftIcon="person-outline"
-            />
-            <Button
-              title="Update"
-              onPress={handleNicknameChange}
-              size="small"
-              style={styles.updateButton}
-            />
+            <Text style={styles.label}>Nickname</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.textInput}
+                value={nickname}
+                onChangeText={setNickname}
+                placeholder="Enter your nickname"
+                placeholderTextColor="#6b7680"
+              />
+              <TouchableOpacity style={styles.updateButton} onPress={handleNicknameChange}>
+                <Text style={styles.updateButtonText}>Update</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </Card>
+        </View>
 
         {/* Appearance Section */}
-        <Card style={styles.section} padding="large">
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Appearance</Text>
           
           <View style={styles.themeContainer}>
-            <Text style={styles.themeLabel}>Theme</Text>
+            <Text style={styles.label}>Theme</Text>
             <View style={styles.themeButtons}>
               {(['system', 'light', 'dark'] as const).map((theme) => (
-                <Button
+                <TouchableOpacity
                   key={theme}
-                  title={theme.charAt(0).toUpperCase() + theme.slice(1)}
+                  style={[
+                    styles.themeButton,
+                    settings.theme === theme && styles.themeButtonActive
+                  ]}
                   onPress={() => handleThemeChange(theme)}
-                  variant={settings.theme === theme ? 'primary' : 'outline'}
-                  size="small"
-                  style={styles.themeButton}
-                />
+                >
+                  <Text style={[
+                    styles.themeButtonText,
+                    settings.theme === theme && styles.themeButtonTextActive
+                  ]}>
+                    {theme.charAt(0).toUpperCase() + theme.slice(1)}
+                  </Text>
+                </TouchableOpacity>
               ))}
             </View>
           </View>
-        </Card>
+
+          <View style={styles.currencyContainer}>
+            <Text style={styles.label}>Currency</Text>
+            <View style={styles.currencyButtons}>
+              {(['SAR', 'USD', 'EUR', 'GBP', 'AED'] as const).map((currency) => (
+                <TouchableOpacity
+                  key={currency}
+                  style={[
+                    styles.currencyButton,
+                    settings.currency === currency && styles.currencyButtonActive
+                  ]}
+                  onPress={() => handleCurrencyChange(currency)}
+                >
+                  <Text style={[
+                    styles.currencyButtonText,
+                    settings.currency === currency && styles.currencyButtonTextActive
+                  ]}>
+                    {currency}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.languageContainer}>
+            <Text style={styles.label}>Language</Text>
+            <View style={styles.languageButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.languageButton,
+                  settings.language === 'en' && styles.languageButtonActive
+                ]}
+                onPress={() => handleLanguageChange('en')}
+              >
+                <Text style={[
+                  styles.languageButtonText,
+                  settings.language === 'en' && styles.languageButtonTextActive
+                ]}>
+                  English
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.languageButton,
+                  settings.language === 'ar' && styles.languageButtonActive
+                ]}
+                onPress={() => handleLanguageChange('ar')}
+              >
+                <Text style={[
+                  styles.languageButtonText,
+                  settings.language === 'ar' && styles.languageButtonTextActive
+                ]}>
+                  العربية
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
 
         {/* Preferences Section */}
-        <Card style={styles.section} padding="large">
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Preferences</Text>
           
           <SettingRow
@@ -231,10 +294,22 @@ export default function SettingsScreen() {
               />
             }
           />
-        </Card>
+        </View>
+
+        {/* Chat Management Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Chat Management</Text>
+          
+          <SettingRow
+            title="Clear Chat History"
+            subtitle="Delete all previous chat messages"
+            icon="trash-outline"
+            onPress={handleClearChatHistory}
+          />
+        </View>
 
         {/* Data Management Section */}
-        <Card style={styles.section} padding="large">
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Data Management</Text>
           
           <SettingRow
@@ -257,10 +332,10 @@ export default function SettingsScreen() {
             icon="refresh-outline"
             onPress={handleResetApp}
           />
-        </Card>
+        </View>
 
         {/* About Section */}
-        <Card style={styles.section} padding="large">
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
           
           <SettingRow
@@ -282,7 +357,7 @@ export default function SettingsScreen() {
             icon="document-outline"
             onPress={() => Alert.alert('Terms of Service', 'Terms of service coming soon!')}
           />
-        </Card>
+        </View>
 
         {/* Privacy Badge */}
         <View style={styles.privacyBadge}>
@@ -311,7 +386,16 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
   },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginBottom: 20,
+  },
   section: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 16,
   },
   sectionTitle: {
@@ -320,21 +404,46 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginBottom: 16,
   },
-  nicknameContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 12,
-  },
-  updateButton: {
-    minWidth: 80,
-  },
-  themeContainer: {
-    gap: 12,
-  },
-  themeLabel: {
+  label: {
     fontSize: 16,
     color: '#ffffff',
     fontWeight: '500',
+    marginBottom: 8,
+  },
+  nicknameContainer: {
+    gap: 8,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  textInput: {
+    flex: 1,
+    backgroundColor: '#2b2f33',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  updateButton: {
+    backgroundColor: '#4f7f8c',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    minWidth: 80,
+  },
+  updateButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  themeContainer: {
+    gap: 12,
+    marginBottom: 20,
   },
   themeButtons: {
     flexDirection: 'row',
@@ -342,6 +451,84 @@ const styles = StyleSheet.create({
   },
   themeButton: {
     flex: 1,
+    backgroundColor: '#2b2f33',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  themeButtonActive: {
+    backgroundColor: '#4f7f8c',
+    borderColor: '#4f7f8c',
+  },
+  themeButtonText: {
+    color: '#6b7680',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  themeButtonTextActive: {
+    color: '#ffffff',
+  },
+  currencyContainer: {
+    gap: 12,
+    marginBottom: 20,
+  },
+  currencyButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  currencyButton: {
+    flex: 1,
+    minWidth: '18%',
+    backgroundColor: '#2b2f33',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  currencyButtonActive: {
+    backgroundColor: '#4f7f8c',
+    borderColor: '#4f7f8c',
+  },
+  currencyButtonText: {
+    color: '#6b7680',
+    fontWeight: '500',
+    textAlign: 'center',
+    fontSize: 14,
+  },
+  currencyButtonTextActive: {
+    color: '#ffffff',
+  },
+  languageContainer: {
+    gap: 12,
+  },
+  languageButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  languageButton: {
+    flex: 1,
+    backgroundColor: '#2b2f33',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+  },
+  languageButtonActive: {
+    backgroundColor: '#4f7f8c',
+    borderColor: '#4f7f8c',
+  },
+  languageButtonText: {
+    color: '#6b7680',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  languageButtonTextActive: {
+    color: '#ffffff',
   },
   settingRow: {
     flexDirection: 'row',

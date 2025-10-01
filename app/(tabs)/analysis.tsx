@@ -3,13 +3,12 @@ import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { ProgressBar } from '../../components/ui/ProgressBar';
-import { useAppStore } from '../../lib/state';
-import { formatCurrency, analyzeTransactions } from '../../lib/utils';
 
 export default function AnalysisScreen() {
-  const { transactions, analysisData, setAnalysisData } = useAppStore();
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [analysisData, setAnalysisData] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [hasAddedSampleData, setHasAddedSampleData] = useState(false);
 
   const handleUploadCSV = () => {
     Alert.alert('Upload CSV', 'CSV upload feature coming soon!');
@@ -17,6 +16,103 @@ export default function AnalysisScreen() {
 
   const handleDownloadSample = () => {
     Alert.alert('Download Sample', 'Sample CSV download feature coming soon!');
+  };
+
+  const handleAddSampleData = () => {
+    if (hasAddedSampleData) {
+      Alert.alert('Sample Data', 'Sample data has already been added!');
+      return;
+    }
+
+    const sampleTransactions = [
+      // Income transactions
+      {
+        amount: 8000,
+        description: 'Monthly Salary',
+        category: 'Salary',
+        date: new Date(2024, 11, 1),
+        type: 'income' as const,
+        currency: 'SAR',
+      },
+      {
+        amount: 500,
+        description: 'Freelance Work',
+        category: 'Freelance',
+        date: new Date(2024, 11, 15),
+        type: 'income' as const,
+        currency: 'SAR',
+      },
+      {
+        amount: 200,
+        description: 'Investment Returns',
+        category: 'Investment',
+        date: new Date(2024, 11, 20),
+        type: 'income' as const,
+        currency: 'SAR',
+      },
+      // Expense transactions
+      {
+        amount: 2500,
+        description: 'Rent Payment',
+        category: 'Housing',
+        date: new Date(2024, 11, 1),
+        type: 'expense' as const,
+        currency: 'SAR',
+      },
+      {
+        amount: 800,
+        description: 'Grocery Shopping',
+        category: 'Food',
+        date: new Date(2024, 11, 5),
+        type: 'expense' as const,
+        currency: 'SAR',
+      },
+      {
+        amount: 300,
+        description: 'Utilities',
+        category: 'Utilities',
+        date: new Date(2024, 11, 10),
+        type: 'expense' as const,
+        currency: 'SAR',
+      },
+      {
+        amount: 200,
+        description: 'Transportation',
+        category: 'Transport',
+        date: new Date(2024, 11, 12),
+        type: 'expense' as const,
+        currency: 'SAR',
+      },
+      {
+        amount: 150,
+        description: 'Entertainment',
+        category: 'Entertainment',
+        date: new Date(2024, 11, 18),
+        type: 'expense' as const,
+        currency: 'SAR',
+      },
+      {
+        amount: 400,
+        description: 'Healthcare',
+        category: 'Healthcare',
+        date: new Date(2024, 11, 22),
+        type: 'expense' as const,
+        currency: 'SAR',
+      },
+      {
+        amount: 600,
+        description: 'Shopping',
+        category: 'Shopping',
+        date: new Date(2024, 11, 25),
+        type: 'expense' as const,
+        currency: 'SAR',
+      },
+    ];
+
+    setTransactions([...transactions, ...sampleTransactions]);
+
+    setHasAddedSampleData(true);
+    Alert.alert('Success', 'Sample data added! You can now analyze your financial data.');
   };
 
   const handleAnalyzeData = async () => {
@@ -30,7 +126,17 @@ export default function AnalysisScreen() {
       // Simulate analysis
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      const analysis = analyzeTransactions(transactions);
+      // Simple analysis
+      const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+      const totalExpenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+      const analysis = {
+        totalIncome,
+        totalExpenses,
+        netIncome: totalIncome - totalExpenses,
+        categories: {},
+        insights: ['Great job on your financial management!'],
+        monthlyTrend: []
+      };
       setAnalysisData(analysis);
     } catch (error) {
       Alert.alert('Error', 'Failed to analyze data');
@@ -60,11 +166,20 @@ export default function AnalysisScreen() {
             
             <View style={styles.emptyActions}>
               <Button
+                title="Add Sample Data"
+                onPress={handleAddSampleData}
+                icon="add-circle"
+                size="large"
+                style={styles.uploadButton}
+              />
+              
+              <Button
                 title="Upload CSV"
                 onPress={handleUploadCSV}
                 icon="cloud-upload"
+                variant="outline"
                 size="large"
-                style={styles.uploadButton}
+                style={styles.sampleButton}
               />
               
               <Button
@@ -109,9 +224,16 @@ export default function AnalysisScreen() {
           
           <View style={styles.uploadActions}>
             <Button
+              title="Add Sample Data"
+              onPress={handleAddSampleData}
+              icon="add-circle"
+              style={styles.uploadAction}
+            />
+            <Button
               title="Upload CSV"
               onPress={handleUploadCSV}
               icon="cloud-upload"
+              variant="outline"
               style={styles.uploadAction}
             />
             <Button
@@ -135,14 +257,14 @@ export default function AnalysisScreen() {
                 <View style={styles.summaryItem}>
                   <Text style={styles.summaryLabel}>Total Income</Text>
                   <Text style={styles.summaryValue}>
-                    {formatCurrency(analysisData.totalIncome)}
+                    {analysisData.totalIncome.toLocaleString()} SAR
                   </Text>
                 </View>
                 
                 <View style={styles.summaryItem}>
                   <Text style={styles.summaryLabel}>Total Expenses</Text>
                   <Text style={styles.summaryValue}>
-                    {formatCurrency(analysisData.totalExpenses)}
+                    {analysisData.totalExpenses.toLocaleString()} SAR
                   </Text>
                 </View>
                 
@@ -152,7 +274,7 @@ export default function AnalysisScreen() {
                     styles.summaryValue,
                     { color: analysisData.netIncome >= 0 ? '#34C759' : '#FF3B30' }
                   ]}>
-                    {formatCurrency(analysisData.netIncome)}
+                    {analysisData.netIncome.toLocaleString()} SAR
                   </Text>
                 </View>
               </View>
@@ -161,29 +283,7 @@ export default function AnalysisScreen() {
             {/* Categories Card */}
             <Card style={styles.categoriesCard} padding="large">
               <Text style={styles.categoriesTitle}>Expense Categories</Text>
-              
-              {Object.entries(analysisData.categories).map(([category, amount]) => {
-                const percentage = (amount / analysisData.totalExpenses) * 100;
-                return (
-                  <View key={category} style={styles.categoryItem}>
-                    <View style={styles.categoryHeader}>
-                      <Text style={styles.categoryName}>{category}</Text>
-                      <Text style={styles.categoryAmount}>
-                        {formatCurrency(amount)}
-                      </Text>
-                    </View>
-                    <ProgressBar
-                      progress={percentage}
-                      height={6}
-                      showPercentage={false}
-                      color="#4f7f8c"
-                    />
-                    <Text style={styles.categoryPercentage}>
-                      {percentage.toFixed(1)}%
-                    </Text>
-                  </View>
-                );
-              })}
+              <Text style={styles.emptyText}>No expense categories to display</Text>
             </Card>
 
             {/* Insights Card */}
@@ -201,6 +301,15 @@ export default function AnalysisScreen() {
               ))}
             </Card>
 
+            {/* Monthly Trend Card */}
+            <Card style={styles.trendCard} padding="large">
+              <View style={styles.trendHeader}>
+                <Ionicons name="trending-up" size={24} color="#4f7f8c" />
+                <Text style={styles.trendTitle}>Monthly Trend</Text>
+              </View>
+              <Text style={styles.emptyText}>No trend data available</Text>
+            </Card>
+
             {/* Forecast Card */}
             <Card style={styles.forecastCard} padding="large">
               <View style={styles.forecastHeader}>
@@ -209,7 +318,10 @@ export default function AnalysisScreen() {
               </View>
               
               <Text style={styles.forecastText}>
-                If you keep spending like this, you'll be short {formatCurrency(Math.abs(analysisData.netIncome) * 6)} in 6 months.
+                {analysisData.netIncome >= 0 
+                  ? `If you keep saving like this, you'll have ${(analysisData.netIncome * 6).toLocaleString()} SAR in 6 months.`
+                  : `If you keep spending like this, you'll be short ${(Math.abs(analysisData.netIncome) * 6).toLocaleString()} SAR in 6 months.`
+                }
               </Text>
               
               <View style={styles.forecastActions}>
@@ -316,10 +428,12 @@ const styles = StyleSheet.create({
   },
   uploadActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
+    flexWrap: 'wrap',
   },
   uploadAction: {
     flex: 1,
+    minWidth: '30%',
   },
   summaryCard: {
     marginBottom: 16,
@@ -430,6 +544,68 @@ const styles = StyleSheet.create({
   forecastActions: {
     alignItems: 'flex-start',
   },
+  trendCard: {
+    marginBottom: 16,
+  },
+  trendHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 8,
+  },
+  trendTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  trendChart: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    height: 200,
+    paddingHorizontal: 8,
+  },
+  trendBar: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  trendBarContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    width: 30,
+    marginBottom: 8,
+  },
+  trendBarIncome: {
+    width: 12,
+    backgroundColor: '#34C759',
+    marginRight: 2,
+    borderRadius: 2,
+    minHeight: 4,
+  },
+  trendBarExpense: {
+    width: 12,
+    backgroundColor: '#FF3B30',
+    marginLeft: 2,
+    borderRadius: 2,
+    minHeight: 4,
+  },
+  trendMonth: {
+    fontSize: 12,
+    color: '#6b7680',
+    marginBottom: 4,
+  },
+  trendIncome: {
+    fontSize: 10,
+    color: '#34C759',
+    marginBottom: 2,
+  },
+  trendExpense: {
+    fontSize: 10,
+    color: '#FF3B30',
+  },
   privacyBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -445,5 +621,11 @@ const styles = StyleSheet.create({
     color: '#34C759',
     fontWeight: '500',
     flex: 1,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#6b7680',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });

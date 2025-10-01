@@ -1,73 +1,109 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Modal, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Button } from '../../components/ui/Button';
-import { Card } from '../../components/ui/Card';
-import { Input } from '../../components/ui/Input';
-import { ProgressBar } from '../../components/ui/ProgressBar';
-import { useAppStore } from '../../lib/state';
-import { formatCurrency, formatDate, calculateProgress, getProgressColor, getPriorityColor, getCategoryIcon, getTimeRemaining } from '../../lib/utils';
+import { Goal } from '../../lib/types';
+import { storage } from '../../lib/storage';
 
 export default function GoalsScreen() {
-  const { goals, addGoal, updateGoal, deleteGoal, completeGoal } = useAppStore();
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [showAddGoal, setShowAddGoal] = useState(false);
   const [newGoal, setNewGoal] = useState({
     name: '',
-    description: '',
     targetAmount: '',
     currentAmount: '',
-    currency: 'SAR',
-    deadline: new Date(),
+    deadline: '',
     priority: 'medium' as const,
-    category: 'savings' as const,
+    category: 'savings',
   });
 
+  useEffect(() => {
+    const savedData = storage.getItem('fincoach-data');
+    if (savedData && savedData.goals) {
+      setGoals(savedData.goals);
+    }
+  }, []);
+
+  const saveGoals = (updatedGoals: Goal[]) => {
+    setGoals(updatedGoals);
+    const savedData = storage.getItem('fincoach-data') || {};
+    storage.setItem('fincoach-data', { ...savedData, goals: updatedGoals });
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-SA', {
+      style: 'currency',
+      currency: 'SAR',
+    }).format(amount);
+  };
+
+  const calculateProgress = (current: number, target: number) => {
+    if (target === 0) return 0;
+    return Math.min((current / target) * 100, 100);
+  };
+
+  const getProgressColor = (progress: number) => {
+    if (progress >= 100) return '#34C759';
+    if (progress >= 75) return '#4f7f8c';
+    if (progress >= 50) return '#FF9500';
+    return '#FF3B30';
+  };
+
   const handleAddGoal = () => {
-    if (!newGoal.name.trim()) {
-      Alert.alert('Error', 'Please enter a goal name');
+    if (!newGoal.name.trim() || !newGoal.targetAmount.trim()) {
+      Alert.alert('Error', 'Please fill in goal name and target amount');
       return;
     }
 
-    if (!newGoal.targetAmount || parseFloat(newGoal.targetAmount) <= 0) {
-      Alert.alert('Error', 'Please enter a valid target amount');
-      return;
-    }
-
-    addGoal({
+    const goal: Goal = {
+      id: Date.now().toString(),
       name: newGoal.name.trim(),
-      description: newGoal.description.trim(),
-      targetAmount: parseFloat(newGoal.targetAmount),
+      targetAmount: parseFloat(newGoal.targetAmount) || 0,
       currentAmount: parseFloat(newGoal.currentAmount) || 0,
-      currency: newGoal.currency,
-      deadline: newGoal.deadline,
+      deadline: newGoal.deadline.trim(),
       priority: newGoal.priority,
       category: newGoal.category,
       isCompleted: false,
-    });
+    };
+
+    const updatedGoals = [...goals, goal];
+    saveGoals(updatedGoals);
 
     setNewGoal({
       name: '',
-      description: '',
       targetAmount: '',
       currentAmount: '',
-      currency: 'SAR',
-      deadline: new Date(),
+      deadline: '',
       priority: 'medium',
       category: 'savings',
     });
-    setShowAddModal(false);
+    setShowAddGoal(false);
     Alert.alert('Success', 'Goal added successfully!');
   };
 
+  const handleUpdateGoal = (goalId: string, amount: number) => {
+    const updatedGoals = goals.map(goal => {
+      if (goal.id === goalId) {
+        const newAmount = Math.min(goal.currentAmount + amount, goal.targetAmount);
+        return {
+          ...goal,
+          currentAmount: newAmount,
+          isCompleted: newAmount >= goal.targetAmount,
+        };
+      }
+      return goal;
+    });
+    saveGoals(updatedGoals);
+  };
+
   const handleCompleteGoal = (goalId: string) => {
-    Alert.alert(
-      'Complete Goal',
-      'Are you sure you want to mark this goal as completed?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Complete', onPress: () => completeGoal(goalId) },
-      ]
-    );
+    const updatedGoals = goals.map(goal => {
+      if (goal.id === goalId) {
+        return { ...goal, currentAmount: goal.targetAmount, isCompleted: true };
+      }
+      return goal;
+    });
+    saveGoals(updatedGoals);
+    Alert.alert('Success', 'Goal completed! 🎉');
   };
 
   const handleDeleteGoal = (goalId: string) => {
@@ -76,266 +112,174 @@ export default function GoalsScreen() {
       'Are you sure you want to delete this goal?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => deleteGoal(goalId) },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            const updatedGoals = goals.filter(goal => goal.id !== goalId);
+            saveGoals(updatedGoals);
+          },
+        },
       ]
     );
   };
 
-  const handleAddAmount = (goalId: string, amount: number) => {
-    const goal = goals.find(g => g.id === goalId);
-    if (goal) {
-      const newAmount = Math.min(goal.currentAmount + amount, goal.targetAmount);
-      updateGoal(goalId, { currentAmount: newAmount });
-    }
-  };
-
-  if (goals.length === 0) {
-    return (
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.emptyContainer}>
+  return (
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        {goals.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="trophy-outline" size={80} color="#6b7680" />
             <Text style={styles.emptyTitle}>No Goals Yet</Text>
             <Text style={styles.emptySubtitle}>
               Start your financial journey by adding your first goal
             </Text>
-            <Button
-              title="Add Your First Goal"
-              onPress={() => setShowAddModal(true)}
-              icon="add"
-              size="large"
-              style={styles.addButton}
-            />
+            <TouchableOpacity style={styles.addButton} onPress={() => setShowAddGoal(true)}>
+              <Ionicons name="add" size={20} color="#ffffff" />
+              <Text style={styles.addButtonText}>Add Your First Goal</Text>
+            </TouchableOpacity>
           </View>
-        </ScrollView>
+        ) : (
+          goals.map((goal) => {
+            const progress = calculateProgress(goal.currentAmount, goal.targetAmount);
+            const isCompleted = goal.isCompleted || progress >= 100;
 
-        {/* Add Goal Modal */}
-        <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet">
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add New Goal</Text>
-              <TouchableOpacity onPress={() => setShowAddModal(false)}>
-                <Ionicons name="close" size={24} color="#6b7680" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalContent}>
-              <Input
-                label="Goal Name"
-                value={newGoal.name}
-                onChangeText={(text) => setNewGoal({ ...newGoal, name: text })}
-                placeholder="e.g., Emergency Fund"
-              />
-
-              <Input
-                label="Description (Optional)"
-                value={newGoal.description}
-                onChangeText={(text) => setNewGoal({ ...newGoal, description: text })}
-                placeholder="Describe your goal..."
-                multiline
-                numberOfLines={3}
-              />
-
-              <Input
-                label="Target Amount"
-                value={newGoal.targetAmount}
-                onChangeText={(text) => setNewGoal({ ...newGoal, targetAmount: text })}
-                placeholder="10000"
-                keyboardType="numeric"
-                leftIcon="cash-outline"
-              />
-
-              <Input
-                label="Current Amount"
-                value={newGoal.currentAmount}
-                onChangeText={(text) => setNewGoal({ ...newGoal, currentAmount: text })}
-                placeholder="0"
-                keyboardType="numeric"
-                leftIcon="wallet-outline"
-              />
-
-              <View style={styles.modalActions}>
-                <Button
-                  title="Cancel"
-                  onPress={() => setShowAddModal(false)}
-                  variant="outline"
-                  style={styles.cancelButton}
-                />
-                <Button
-                  title="Add Goal"
-                  onPress={handleAddGoal}
-                  style={styles.addGoalButton}
-                />
-              </View>
-            </ScrollView>
-          </View>
-        </Modal>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        {/* Goals Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Your Goals</Text>
-          <Button
-            title="Add Goal"
-            onPress={() => setShowAddModal(true)}
-            icon="add"
-            size="small"
-          />
-        </View>
-
-        {/* Goals List */}
-        {goals.map((goal) => {
-          const progress = calculateProgress(goal.currentAmount, goal.targetAmount);
-          const isCompleted = goal.isCompleted || progress >= 100;
-
-          return (
-            <Card key={goal.id} style={styles.goalCard} padding="large">
-              <View style={styles.goalHeader}>
-                <View style={styles.goalInfo}>
-                  <Text style={styles.goalName}>{goal.name}</Text>
-                  <Text style={styles.goalDescription}>{goal.description}</Text>
+            return (
+              <View key={goal.id} style={styles.goalCard}>
+                <View style={styles.goalHeader}>
+                  <View style={styles.goalInfo}>
+                    <Text style={styles.goalName}>{goal.name}</Text>
+                    <Text style={styles.goalAmounts}>
+                      {formatCurrency(goal.currentAmount)} of {formatCurrency(goal.targetAmount)}
+                    </Text>
+                  </View>
+                  {isCompleted && (
+                    <Ionicons name="checkmark-circle" size={24} color="#34C759" />
+                  )}
                 </View>
-                {isCompleted && (
-                  <Ionicons name="checkmark-circle" size={24} color="#34C759" />
+
+                <View style={styles.progressContainer}>
+                  <View style={[styles.progressBar, { width: `${progress}%`, backgroundColor: getProgressColor(progress) }]} />
+                </View>
+                <Text style={styles.progressText}>{Math.round(progress)}%</Text>
+
+                {!isCompleted && (
+                  <View style={styles.goalActions}>
+                    <TouchableOpacity
+                      style={styles.quickAddButton}
+                      onPress={() => handleUpdateGoal(goal.id, 100)}
+                    >
+                      <Text style={styles.quickAddText}>+100</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.quickAddButton}
+                      onPress={() => handleUpdateGoal(goal.id, 500)}
+                    >
+                      <Text style={styles.quickAddText}>+500</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.completeButton}
+                      onPress={() => handleCompleteGoal(goal.id)}
+                    >
+                      <Text style={styles.completeButtonText}>Complete</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => handleDeleteGoal(goal.id)}
+                    >
+                      <Ionicons name="trash" size={16} color="#FF3B30" />
+                    </TouchableOpacity>
+                  </View>
                 )}
               </View>
-
-              <View style={styles.goalDetails}>
-                <View style={styles.goalAmounts}>
-                  <Text style={styles.currentAmount}>
-                    {formatCurrency(goal.currentAmount, goal.currency)}
-                  </Text>
-                  <Text style={styles.targetAmount}>
-                    of {formatCurrency(goal.targetAmount, goal.currency)}
-                  </Text>
-                </View>
-
-                <View style={styles.goalMeta}>
-                  <View style={styles.goalCategory}>
-                    <Text style={styles.categoryIcon}>{getCategoryIcon(goal.category)}</Text>
-                    <Text style={styles.categoryText}>{goal.category}</Text>
-                  </View>
-                  <View style={styles.goalPriority}>
-                    <View style={[styles.priorityDot, { backgroundColor: getPriorityColor(goal.priority) }]} />
-                    <Text style={styles.priorityText}>{goal.priority}</Text>
-                  </View>
-                </View>
-              </View>
-
-              <ProgressBar
-                progress={progress}
-                color={getProgressColor(progress)}
-                style={styles.progressBar}
-              />
-
-              <View style={styles.goalFooter}>
-                <Text style={styles.deadlineText}>
-                  {getTimeRemaining(goal.deadline)}
-                </Text>
-                <Text style={styles.deadlineDate}>
-                  {formatDate(goal.deadline)}
-                </Text>
-              </View>
-
-              {!isCompleted && (
-                <View style={styles.goalActions}>
-                  <Button
-                    title="+100"
-                    onPress={() => handleAddAmount(goal.id, 100)}
-                    size="small"
-                    variant="outline"
-                    style={styles.quickAddButton}
-                  />
-                  <Button
-                    title="+500"
-                    onPress={() => handleAddAmount(goal.id, 500)}
-                    size="small"
-                    variant="outline"
-                    style={styles.quickAddButton}
-                  />
-                  <Button
-                    title="Complete"
-                    onPress={() => handleCompleteGoal(goal.id)}
-                    size="small"
-                    style={styles.completeButton}
-                  />
-                  <Button
-                    title="Delete"
-                    onPress={() => handleDeleteGoal(goal.id)}
-                    size="small"
-                    variant="ghost"
-                    style={styles.deleteButton}
-                  />
-                </View>
-              )}
-            </Card>
-          );
-        })}
+            );
+          })
+        )}
       </ScrollView>
 
       {/* Add Goal Modal */}
-      <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={showAddGoal} animationType="slide" presentationStyle="pageSheet">
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Add New Goal</Text>
-            <TouchableOpacity onPress={() => setShowAddModal(false)}>
+            <TouchableOpacity onPress={() => setShowAddGoal(false)}>
               <Ionicons name="close" size={24} color="#6b7680" />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.modalContent}>
-            <Input
-              label="Goal Name"
-              value={newGoal.name}
-              onChangeText={(text) => setNewGoal({ ...newGoal, name: text })}
-              placeholder="e.g., Emergency Fund"
-            />
-
-            <Input
-              label="Description (Optional)"
-              value={newGoal.description}
-              onChangeText={(text) => setNewGoal({ ...newGoal, description: text })}
-              placeholder="Describe your goal..."
-              multiline
-              numberOfLines={3}
-            />
-
-            <Input
-              label="Target Amount"
-              value={newGoal.targetAmount}
-              onChangeText={(text) => setNewGoal({ ...newGoal, targetAmount: text })}
-              placeholder="10000"
-              keyboardType="numeric"
-              leftIcon="cash-outline"
-            />
-
-            <Input
-              label="Current Amount"
-              value={newGoal.currentAmount}
-              onChangeText={(text) => setNewGoal({ ...newGoal, currentAmount: text })}
-              placeholder="0"
-              keyboardType="numeric"
-              leftIcon="wallet-outline"
-            />
-
-            <View style={styles.modalActions}>
-              <Button
-                title="Cancel"
-                onPress={() => setShowAddModal(false)}
-                variant="outline"
-                style={styles.cancelButton}
-              />
-              <Button
-                title="Add Goal"
-                onPress={handleAddGoal}
-                style={styles.addGoalButton}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Goal Name</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newGoal.name}
+                onChangeText={(text) => setNewGoal({ ...newGoal, name: text })}
+                placeholder="e.g., Emergency Fund"
+                placeholderTextColor="#6b7680"
               />
             </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Target Amount (SAR)</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newGoal.targetAmount}
+                onChangeText={(text) => setNewGoal({ ...newGoal, targetAmount: text })}
+                placeholder="10000"
+                keyboardType="numeric"
+                placeholderTextColor="#6b7680"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Current Amount (SAR)</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newGoal.currentAmount}
+                onChangeText={(text) => setNewGoal({ ...newGoal, currentAmount: text })}
+                placeholder="0"
+                keyboardType="numeric"
+                placeholderTextColor="#6b7680"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Deadline (Optional)</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newGoal.deadline}
+                onChangeText={(text) => setNewGoal({ ...newGoal, deadline: text })}
+                placeholder="2024-12-31"
+                placeholderTextColor="#6b7680"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Priority</Text>
+              <View style={styles.priorityButtons}>
+                {(['low', 'medium', 'high'] as const).map((priority) => (
+                  <TouchableOpacity
+                    key={priority}
+                    style={[
+                      styles.priorityButton,
+                      newGoal.priority === priority && styles.priorityButtonActive
+                    ]}
+                    onPress={() => setNewGoal({ ...newGoal, priority })}
+                  >
+                    <Text style={[
+                      styles.priorityButtonText,
+                      newGoal.priority === priority && styles.priorityButtonTextActive
+                    ]}>
+                      {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.saveButton} onPress={handleAddGoal}>
+              <Text style={styles.saveButtonText}>Add Goal</Text>
+            </TouchableOpacity>
           </ScrollView>
         </View>
       </Modal>
@@ -355,14 +299,11 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
   emptyState: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
   },
   emptyTitle: {
     fontSize: 24,
@@ -379,21 +320,26 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   addButton: {
-    minWidth: 200,
-  },
-  header: {
+    backgroundColor: '#4f7f8c',
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  addButtonText: {
     color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   goalCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#2b2f33',
   },
   goalHeader: {
     flexDirection: 'row',
@@ -410,78 +356,25 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginBottom: 4,
   },
-  goalDescription: {
-    fontSize: 14,
-    color: '#6b7680',
-    lineHeight: 20,
-  },
-  goalDetails: {
-    marginBottom: 16,
-  },
   goalAmounts: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
+    fontSize: 14,
+    color: '#a5c6d5',
+  },
+  progressContainer: {
+    height: 8,
+    backgroundColor: '#2b2f33',
+    borderRadius: 4,
     marginBottom: 8,
   },
-  currentAmount: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#4f7f8c',
-  },
-  targetAmount: {
-    fontSize: 16,
-    color: '#6b7680',
-    marginLeft: 8,
-  },
-  goalMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  goalCategory: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  categoryIcon: {
-    fontSize: 16,
-  },
-  categoryText: {
-    fontSize: 14,
-    color: '#6b7680',
-    textTransform: 'capitalize',
-  },
-  goalPriority: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  priorityDot: {
-    width: 8,
-    height: 8,
+  progressBar: {
+    height: '100%',
     borderRadius: 4,
   },
-  priorityText: {
-    fontSize: 14,
+  progressText: {
+    fontSize: 12,
     color: '#6b7680',
-    textTransform: 'capitalize',
-  },
-  progressBar: {
+    textAlign: 'right',
     marginBottom: 12,
-  },
-  goalFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  deadlineText: {
-    fontSize: 14,
-    color: '#6b7680',
-  },
-  deadlineDate: {
-    fontSize: 14,
-    color: '#6b7680',
   },
   goalActions: {
     flexDirection: 'row',
@@ -489,16 +382,32 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   quickAddButton: {
-    flex: 1,
-    minWidth: 60,
+    backgroundColor: '#2b2f33',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  quickAddText: {
+    color: '#4f7f8c',
+    fontSize: 12,
+    fontWeight: '500',
   },
   completeButton: {
-    flex: 1,
-    minWidth: 80,
+    backgroundColor: '#34C759',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  completeButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '500',
   },
   deleteButton: {
-    flex: 1,
-    minWidth: 60,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
   modalContainer: {
     flex: 1,
@@ -523,15 +432,57 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
-  modalActions: {
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  textInput: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#2b2f33',
+  },
+  priorityButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
+  },
+  priorityButton: {
+    flex: 1,
+    backgroundColor: '#2b2f33',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  priorityButtonActive: {
+    backgroundColor: '#4f7f8c',
+  },
+  priorityButtonText: {
+    color: '#6b7680',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  priorityButtonTextActive: {
+    color: '#ffffff',
+  },
+  saveButton: {
+    backgroundColor: '#4f7f8c',
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
     marginTop: 20,
   },
-  cancelButton: {
-    flex: 1,
-  },
-  addGoalButton: {
-    flex: 1,
+  saveButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
