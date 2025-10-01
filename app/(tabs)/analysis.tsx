@@ -1,367 +1,449 @@
-import React, { useState } from "react";
-import { Alert, ScrollView } from "react-native";
-import { View, Text } from "@tamagui/core";
-import { YStack, XStack } from "@tamagui/stacks";
-import { Button } from "@tamagui/button";
-import { pickCSVFile, parseCSV, downloadSampleCSV } from "../../lib/csv";
-import { analyzeCSV } from "../../lib/ai";
-import { formatCurrency } from "../../lib/currency";
-import MetricCard from "../../components/MetricCard";
-import { CSVData, MetricCard as MetricCardType } from "../../types";
-import GhostChart from "../../components/GhostChart";
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { ProgressBar } from '../../components/ui/ProgressBar';
+import { useAppStore } from '../../lib/state';
+import { formatCurrency, analyzeTransactions } from '../../lib/utils';
 
 export default function AnalysisScreen() {
-  const [csvData, setCsvData] = useState<CSVData | null>(null);
-  const [analysis, setAnalysis] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
+  const { transactions, analysisData, setAnalysisData } = useAppStore();
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handlePickFile = async () => {
-    try {
-      const uri = await pickCSVFile();
-      if (!uri) return;
-
-      setIsLoading(true);
-      const parsed = await parseCSV(uri);
-
-      if (!parsed) {
-        Alert.alert("Error", "Failed to parse CSV file");
-        return;
-      }
-
-      setCsvData(parsed);
-      await analyzeData(parsed);
-    } catch (error) {
-      console.error("Error picking file:", error);
-      Alert.alert("Error", "Failed to pick CSV file");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const analyzeData = async (data: CSVData) => {
-    try {
-      const result = await analyzeCSV(data.summary);
-      if (result) {
-        setAnalysis(result);
-      } else {
-        Alert.alert("Error", "Failed to analyze data");
-      }
-    } catch (error) {
-      console.error("Error analyzing data:", error);
-      Alert.alert("Error", "Failed to analyze data");
-    }
+  const handleUploadCSV = () => {
+    Alert.alert('Upload CSV', 'CSV upload feature coming soon!');
   };
 
   const handleDownloadSample = () => {
-    downloadSampleCSV();
+    Alert.alert('Download Sample', 'Sample CSV download feature coming soon!');
   };
 
-  const formatAnalysis = (analysisText: string) => {
-    // Split the analysis into sections
-    const sections = analysisText.split(/(?=###)/);
+  const handleAnalyzeData = async () => {
+    if (transactions.length === 0) {
+      Alert.alert('No Data', 'Please add some transactions first');
+      return;
+    }
 
-    return sections
-      .map((section, index) => {
-        if (!section.trim()) return null;
-
-        const lines = section
-          .trim()
-          .split("\n")
-          .filter((line) => line.trim());
-        const title = lines[0]?.replace(/^###\s*/, "") || "";
-        const content = lines.slice(1);
-
-        return { title, content, key: index };
-      })
-      .filter(Boolean);
+    setIsAnalyzing(true);
+    try {
+      // Simulate analysis
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const analysis = analyzeTransactions(transactions);
+      setAnalysisData(analysis);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to analyze data');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
-  const getSectionColor = (title: string) => {
-    // Unified color for all AI recommendation sections
-    return "$blue9";
+  const handleExportInsights = () => {
+    if (!analysisData) {
+      Alert.alert('No Data', 'Please analyze your data first');
+      return;
+    }
+    Alert.alert('Export Insights', 'Export feature coming soon!');
   };
 
-  const renderAnalysisSection = (section: {
-    title: string;
-    content: string[];
-    key: number;
-  }) => {
-    const color = getSectionColor(section.title);
-
+  if (transactions.length === 0) {
     return (
-      <View
-        key={section.key}
-        backgroundColor="$gray8"
-        padding="$4"
-        borderRadius="$4"
-        marginBottom="$3"
-        borderLeftWidth={4}
-        borderLeftColor={color}
-      >
-        <YStack space="$3">
-          <Text fontSize="$5" fontWeight="bold" color={color}>
-            {section.title}
-          </Text>
-
-          <YStack space="$2">
-            {section.content.map((line, lineIndex) => {
-              // Check if it's a numbered list item
-              const isNumberedItem = /^\d+\.\s/.test(line);
-              const isBulletItem = /^[•·-]\s/.test(line);
-
-              if (isNumberedItem || isBulletItem) {
-                return (
-                  <XStack
-                    key={lineIndex}
-                    marginBottom="$1"
-                    alignItems="flex-start"
-                  >
-                    <Text
-                      color={color}
-                      fontSize="$3"
-                      marginRight="$2"
-                      marginTop="$1"
-                    >
-                      •
-                    </Text>
-                    <Text color="$color" fontSize="$4" flex={1} lineHeight="$4">
-                      {line.replace(/^\d+\.\s|[•·-]\s/, "")}
-                    </Text>
-                  </XStack>
-                );
-              }
-
-              return (
-                <Text
-                  key={lineIndex}
-                  color="$color"
-                  fontSize="$4"
-                  marginBottom="$1"
-                  lineHeight="$4"
-                >
-                  {line}
-                </Text>
-              );
-            })}
-          </YStack>
-        </YStack>
-      </View>
-    );
-  };
-
-  const getCategoryColor = (category: string) => {
-    // Unified color for all categories
-    return "$blue9";
-  };
-
-  const renderCategoryCard = (category: string, count: number) => {
-    const color = getCategoryColor(category);
-
-    return (
-      <View
-        key={category}
-        backgroundColor="$gray8"
-        padding="$3"
-        borderRadius="$3"
-        marginBottom="$2"
-        borderWidth={1}
-        borderColor="$borderColor"
-        width="48%"
-      >
-        <YStack space="$2" alignItems="center">
-          <Text
-            color="$color"
-            fontSize="$4"
-            fontWeight="600"
-            textAlign="center"
-            numberOfLines={2}
-          >
-            {category}
-          </Text>
-          <View
-            backgroundColor={color}
-            paddingHorizontal="$2"
-            paddingVertical="$1"
-            borderRadius="$2"
-          >
-            <Text color="white" fontSize="$3" fontWeight="bold">
-              {count} transaction{count !== 1 ? "s" : ""}
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.emptyContainer}>
+          <View style={styles.emptyState}>
+            <Ionicons name="pie-chart-outline" size={80} color="#6b7680" />
+            <Text style={styles.emptyTitle}>No Data Yet</Text>
+            <Text style={styles.emptySubtitle}>
+              Upload your financial data to get insights and analysis
             </Text>
+            
+            <View style={styles.emptyActions}>
+              <Button
+                title="Upload CSV"
+                onPress={handleUploadCSV}
+                icon="cloud-upload"
+                size="large"
+                style={styles.uploadButton}
+              />
+              
+              <Button
+                title="Download Sample CSV"
+                onPress={handleDownloadSample}
+                icon="download"
+                variant="outline"
+                size="large"
+                style={styles.sampleButton}
+              />
+            </View>
           </View>
-        </YStack>
+        </ScrollView>
       </View>
     );
-  };
-
-  const getMetricCards = (): MetricCardType[] => {
-    if (!csvData) return [];
-
-    const metrics: MetricCardType[] = [
-      {
-        title: "Total Records",
-        value: csvData.summary.totalRows.toString(),
-      },
-    ];
-
-    if (csvData.summary.totals) {
-      Object.entries(csvData.summary.totals).forEach(([key, value]) => {
-        metrics.push({
-          title: `Total ${key}`,
-          value: formatCurrency(value as number),
-        });
-      });
-    }
-
-    if (csvData.summary.dateRange) {
-      const startDate = new Date(csvData.summary.dateRange.start);
-      const endDate = new Date(csvData.summary.dateRange.end);
-      const daysDiff = Math.ceil(
-        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-      );
-
-      metrics.push({
-        title: "Date Range",
-        value: `${daysDiff} days`,
-      });
-    }
-
-    return metrics;
-  };
+  }
 
   return (
-    <View flex={1} backgroundColor="$background">
-      <ScrollView style={{ padding: 16 }}>
-        <YStack space="$4">
-          <Text fontSize="$8" fontWeight="bold" color="$color">
-            Financial Analysis
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Financial Analysis</Text>
+          <Button
+            title="Analyze"
+            onPress={handleAnalyzeData}
+            icon="analytics"
+            loading={isAnalyzing}
+            size="small"
+          />
+        </View>
+
+        {/* Upload Actions */}
+        <Card style={styles.uploadCard} padding="large">
+          <View style={styles.uploadHeader}>
+            <Ionicons name="document-attach" size={24} color="#4f7f8c" />
+            <Text style={styles.uploadTitle}>Data Management</Text>
+          </View>
+          <Text style={styles.uploadSubtitle}>
+            Upload CSV files or download sample data to get started
           </Text>
+          
+          <View style={styles.uploadActions}>
+            <Button
+              title="Upload CSV"
+              onPress={handleUploadCSV}
+              icon="cloud-upload"
+              style={styles.uploadAction}
+            />
+            <Button
+              title="Download Sample"
+              onPress={handleDownloadSample}
+              icon="download"
+              variant="outline"
+              style={styles.uploadAction}
+            />
+          </View>
+        </Card>
 
-          {!csvData ? (
-            <View
-              backgroundColor="$gray8"
-              padding="$6"
-              borderRadius="$4"
-              alignItems="center"
-            >
-              <View style={{ position: "absolute", top: 16, left: 16, right: 16, opacity: 0.35 }} pointerEvents="none">
-                <GhostChart />
+        {/* Analysis Results */}
+        {analysisData && (
+          <>
+            {/* Summary Card */}
+            <Card style={styles.summaryCard} padding="large">
+              <Text style={styles.summaryTitle}>Financial Summary</Text>
+              
+              <View style={styles.summaryGrid}>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>Total Income</Text>
+                  <Text style={styles.summaryValue}>
+                    {formatCurrency(analysisData.totalIncome)}
+                  </Text>
+                </View>
+                
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>Total Expenses</Text>
+                  <Text style={styles.summaryValue}>
+                    {formatCurrency(analysisData.totalExpenses)}
+                  </Text>
+                </View>
+                
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>Net Income</Text>
+                  <Text style={[
+                    styles.summaryValue,
+                    { color: analysisData.netIncome >= 0 ? '#34C759' : '#FF3B30' }
+                  ]}>
+                    {formatCurrency(analysisData.netIncome)}
+                  </Text>
+                </View>
               </View>
-              <Text
-                fontSize="$5"
-                color="$gray11"
-                textAlign="center"
-                marginBottom="$3"
-              >
-                Upload CSV to Analyze
-              </Text>
-              <Text
-                fontSize="$4"
-                color="$gray11"
-                textAlign="center"
-                marginBottom="$4"
-              >
-                Upload your financial data in CSV format to get AI-powered
-                insights
-              </Text>
+            </Card>
 
-              <YStack space="$3" alignItems="center">
-                <Button
-                  backgroundColor="$primary"
-                  color="white"
-                  onPress={handlePickFile}
-                  disabled={isLoading}
-                  borderRadius="$3"
-                  paddingHorizontal="$4"
-                  paddingVertical="$3"
-                >
-                  {isLoading ? "Processing..." : "Upload CSV"}
-                </Button>
-
-                <Button
-                  variant="outlined"
-                  borderColor="$gray8"
-                  color="$gray11"
-                  onPress={handleDownloadSample}
-                  borderRadius="$3"
-                  paddingHorizontal="$4"
-                  paddingVertical="$3"
-                >
-                  Download Sample CSV
-                </Button>
-              </YStack>
-            </View>
-          ) : (
-            <>
-              {/* Metrics */}
-              <YStack space="$3">
-                <Text fontSize="$6" fontWeight="bold" color="$color">
-                  Key Metrics
-                </Text>
-                <XStack space="$3" flexWrap="wrap">
-                  {getMetricCards().map((metric, index) => (
-                    <View key={index} width="48%" marginBottom="$3">
-                      <MetricCard metric={metric} />
+            {/* Categories Card */}
+            <Card style={styles.categoriesCard} padding="large">
+              <Text style={styles.categoriesTitle}>Expense Categories</Text>
+              
+              {Object.entries(analysisData.categories).map(([category, amount]) => {
+                const percentage = (amount / analysisData.totalExpenses) * 100;
+                return (
+                  <View key={category} style={styles.categoryItem}>
+                    <View style={styles.categoryHeader}>
+                      <Text style={styles.categoryName}>{category}</Text>
+                      <Text style={styles.categoryAmount}>
+                        {formatCurrency(amount)}
+                      </Text>
                     </View>
-                  ))}
-                </XStack>
-              </YStack>
+                    <ProgressBar
+                      progress={percentage}
+                      height={6}
+                      showPercentage={false}
+                      color="#4f7f8c"
+                    />
+                    <Text style={styles.categoryPercentage}>
+                      {percentage.toFixed(1)}%
+                    </Text>
+                  </View>
+                );
+              })}
+            </Card>
 
-              {/* Categories */}
-              {csvData.summary.categories && (
-                <YStack space="$3">
-                  <Text fontSize="$6" fontWeight="bold" color="$color">
-                    Categories
-                  </Text>
-                  <XStack space="$3" flexWrap="wrap">
-                    {Object.entries(csvData.summary.categories).map(
-                      ([category, count]) =>
-                        renderCategoryCard(category, count as number)
-                    )}
-                  </XStack>
-                </YStack>
-              )}
+            {/* Insights Card */}
+            <Card style={styles.insightsCard} padding="large">
+              <View style={styles.insightsHeader}>
+                <Ionicons name="bulb" size={24} color="#FF9500" />
+                <Text style={styles.insightsTitle}>AI Insights</Text>
+              </View>
+              
+              {analysisData.insights.map((insight, index) => (
+                <View key={index} style={styles.insightItem}>
+                  <Ionicons name="checkmark-circle" size={16} color="#34C759" />
+                  <Text style={styles.insightText}>{insight}</Text>
+                </View>
+              ))}
+            </Card>
 
-              {/* AI Analysis */}
-              {analysis && (
-                <YStack space="$3">
-                  <Text fontSize="$6" fontWeight="bold" color="$color">
-                    AI Recommendations
-                  </Text>
-                  {formatAnalysis(analysis).map(renderAnalysisSection)}
-                </YStack>
-              )}
-
-              {/* Actions */}
-              <XStack space="$3" justifyContent="center">
+            {/* Forecast Card */}
+            <Card style={styles.forecastCard} padding="large">
+              <View style={styles.forecastHeader}>
+                <Ionicons name="trending-up" size={24} color="#4f7f8c" />
+                <Text style={styles.forecastTitle}>6-Month Forecast</Text>
+              </View>
+              
+              <Text style={styles.forecastText}>
+                If you keep spending like this, you'll be short {formatCurrency(Math.abs(analysisData.netIncome) * 6)} in 6 months.
+              </Text>
+              
+              <View style={styles.forecastActions}>
                 <Button
-                  backgroundColor="$blue9"
-                  color="white"
-                  onPress={handlePickFile}
-                  borderRadius="$3"
-                  paddingHorizontal="$4"
-                  paddingVertical="$3"
-                >
-                  Upload New File
-                </Button>
-                <Button
-                  variant="outlined"
-                  borderColor="$gray8"
-                  color="$gray11"
-                  onPress={() => {
-                    setCsvData(null);
-                    setAnalysis("");
-                  }}
-                  borderRadius="$3"
-                  paddingHorizontal="$4"
-                  paddingVertical="$3"
-                >
-                  Clear Data
-                </Button>
-              </XStack>
-            </>
-          )}
-        </YStack>
+                  title="Export Insights"
+                  onPress={handleExportInsights}
+                  icon="share"
+                  variant="outline"
+                  size="small"
+                />
+              </View>
+            </Card>
+          </>
+        )}
+
+        {/* Privacy Badge */}
+        <View style={styles.privacyBadge}>
+          <Ionicons name="shield-checkmark" size={20} color="#34C759" />
+          <Text style={styles.privacyText}>
+            🔐 Your financial data is analyzed locally and never shared
+          </Text>
+        </View>
       </ScrollView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0a0a0a',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyState: {
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: '#6b7680',
+    textAlign: 'center',
+    marginBottom: 30,
+    lineHeight: 24,
+  },
+  emptyActions: {
+    gap: 16,
+    width: '100%',
+    maxWidth: 300,
+  },
+  uploadButton: {
+    backgroundColor: '#4f7f8c',
+  },
+  sampleButton: {
+    borderColor: '#4f7f8c',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  uploadCard: {
+    marginBottom: 16,
+  },
+  uploadHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  uploadTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  uploadSubtitle: {
+    fontSize: 14,
+    color: '#6b7680',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  uploadActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  uploadAction: {
+    flex: 1,
+  },
+  summaryCard: {
+    marginBottom: 16,
+  },
+  summaryTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 16,
+  },
+  summaryGrid: {
+    gap: 16,
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    fontSize: 16,
+    color: '#6b7680',
+  },
+  summaryValue: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  categoriesCard: {
+    marginBottom: 16,
+  },
+  categoriesTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 16,
+  },
+  categoryItem: {
+    marginBottom: 16,
+  },
+  categoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  categoryName: {
+    fontSize: 16,
+    color: '#ffffff',
+    textTransform: 'capitalize',
+  },
+  categoryAmount: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4f7f8c',
+  },
+  categoryPercentage: {
+    fontSize: 12,
+    color: '#6b7680',
+    marginTop: 4,
+    textAlign: 'right',
+  },
+  insightsCard: {
+    marginBottom: 16,
+  },
+  insightsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 8,
+  },
+  insightsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  insightItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    gap: 8,
+  },
+  insightText: {
+    fontSize: 14,
+    color: '#a5c6d5',
+    lineHeight: 20,
+    flex: 1,
+  },
+  forecastCard: {
+    marginBottom: 16,
+  },
+  forecastHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  forecastTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  forecastText: {
+    fontSize: 16,
+    color: '#a5c6d5',
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  forecastActions: {
+    alignItems: 'flex-start',
+  },
+  privacyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(52, 199, 89, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+    marginTop: 20,
+  },
+  privacyText: {
+    fontSize: 14,
+    color: '#34C759',
+    fontWeight: '500',
+    flex: 1,
+  },
+});

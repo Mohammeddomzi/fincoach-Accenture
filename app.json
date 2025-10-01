@@ -1,45 +1,37 @@
 {
   "expo": {
-    "scheme": "fincoach",
-    "web": {
-      "output": "server",
-      "bundler": "metro"
-    },
-    "plugins": [
-      [
-        "expo-router",
-        {
-          "origin": "https://your-eas-hosting-domain.com"
-        }
-      ]
-    ],
     "name": "FinCoach",
     "slug": "fincoach",
     "version": "1.0.0",
     "orientation": "portrait",
-    // Temporarily disable icon to avoid bad file reference
-    // "icon": "./assets/adaptive-icon.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#0a0a0a"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fincoach.app"
     },
     "android": {
       "adaptiveIcon": {
-        // Temporarily disable adaptive icon image
-        // "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a0a0a"
-      }
+      },
+      "package": "com.fincoach.app"
     },
-    "extra": {
-      "router": {
-        "origin": "https://your-eas-hosting-domain.com"
-      }
-    }
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "scheme": "fincoach"
   }
 }

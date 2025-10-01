@@ -195,9 +195,9 @@ export default function ChatView({ onMessageSent }: ChatViewProps) {
               Do you want to track expenses, set goals, or get forecasts today?
             </Text>
             <XStack gap={8} flexWrap="wrap">
-              <Button backgroundColor="$primary" color="#ffffff" onPress={() => setInputText("Help me track expenses from my CSV")}>Track expenses</Button>
-              <Button backgroundColor="$secondary" color="#0a0a0a" onPress={() => setInputText("I want to set a savings goal")}>Set goals</Button>
-              <Button backgroundColor="$accent" color="#0a0a0a" onPress={() => setInputText("Give me a 6-month savings forecast")}>Get forecasts</Button>
+              <Button backgroundColor="$primary" color="$color" onPress={() => setInputText("Help me track expenses from my CSV")}>Track expenses</Button>
+              <Button backgroundColor="$secondary" color="$color" onPress={() => setInputText("I want to set a savings goal")}>Set goals</Button>
+              <Button backgroundColor="$accent" color="$color" onPress={() => setInputText("Give me a 6-month savings forecast")}>Get forecasts</Button>
             </XStack>
           </View>
         )}
@@ -225,7 +225,7 @@ export default function ChatView({ onMessageSent }: ChatViewProps) {
                   borderRadius="$3"
                   maxWidth="80%"
                 >
-                  <Text color="#ffffff">{message.content}</Text>
+                  <Text color="$color">{message.content}</Text>
                   <Text fontSize="$2" color="$gray11" marginTop="$1">
                     {message.timestamp.toLocaleTimeString()}
                   </Text>
@@ -244,7 +244,7 @@ export default function ChatView({ onMessageSent }: ChatViewProps) {
                   borderRadius="$3"
                   maxWidth="80%"
                 >
-                  <Text color="#ffffff">{streamingMessage}</Text>
+                  <Text color="$color">{streamingMessage}</Text>
                   <Text fontSize="$2" color="$gray11" marginTop="$1">
                     Typing...
                   </Text>
@@ -265,16 +265,16 @@ export default function ChatView({ onMessageSent }: ChatViewProps) {
             value={inputText}
             onChangeText={setInputText}
             placeholder="Ask your financial advisor..."
-            placeholderTextColor="#6b7680"
+            placeholderTextColor="$textDim"
             style={{
               flex: 1,
-              backgroundColor: "#111315",
-              color: "#ffffff",
+              backgroundColor: "$panel",
+              color: "$color",
               padding: 12,
               borderRadius: 8,
               marginRight: 8,
               borderWidth: 1,
-              borderColor: "#2b2f33",
+              borderColor: "$borderColor",
             }}
             multiline
             maxLength={1000}
