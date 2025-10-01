@@ -24,22 +24,17 @@ const config: ExpoConfig = {
     // },
   },
   web: {
-    output: "server",
+    output: "static",
     bundler: "metro",
   },
   plugins: [
     [
       "expo-router",
       {
-        origin: "https://your-eas-hosting-domain.com",
+        origin: false,
       },
     ],
   ],
-  extra: {
-    router: {
-      origin: "https://your-eas-hosting-domain.com",
-    },
-  },
 };
 
 export default config;
