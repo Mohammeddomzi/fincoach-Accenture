@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LoadingDots } from '../../components/LoadingDots';
 import { storage } from '../../lib/storage';
 import { ChatMessage } from '../../lib/types';
+import { sendChatMessage } from '../../lib/ai';
 
 export default function AdvisorScreen() {
   const router = useRouter();
@@ -13,6 +14,26 @@ export default function AdvisorScreen() {
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Load chat history on component mount
+  useEffect(() => {
+    const loadHistory = () => {
+      try {
+        const history = storage.getItem('advisor-chat-history') || [];
+        setChatHistory(history);
+      } catch (error) {
+        console.error('Error loading chat history:', error);
+      }
+    };
+    loadHistory();
+  }, []);
+
+  // Save chat history whenever it changes
+  useEffect(() => {
+    if (chatHistory.length > 0) {
+      storage.setItem('advisor-chat-history', chatHistory);
+    }
+  }, [chatHistory]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-SA', {
@@ -34,20 +55,95 @@ export default function AdvisorScreen() {
     setChatMessage('');
     setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: ChatMessage = {
+    try {
+      // Get current settings for the API call
+      const settings = storage.getItem('fincoach-data') || {};
+      
+      // Call the real OpenAI API
+      const stream = await sendChatMessage(chatMessage, settings);
+      
+      if (stream) {
+        // Create AI message placeholder
+        const aiMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          text: '',
+          isUser: false,
+        };
+        
+        setChatHistory(prev => [...prev, aiMessage]);
+        
+        // Read the stream and update the message
+        const reader = stream.getReader();
+        const decoder = new TextDecoder();
+        let fullResponse = '';
+        
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value, { stream: true });
+            fullResponse += chunk;
+            
+            // Update the last message with the current response
+            setChatHistory(prev => {
+              const updated = [...prev];
+              const lastMessage = updated[updated.length - 1];
+              if (lastMessage && !lastMessage.isUser) {
+                lastMessage.text = fullResponse;
+              }
+              return updated;
+            });
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      } else {
+        throw new Error('No response from API');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      
+      // Add error message
+      const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        text: "I'm here to help you with your financial goals! Based on your current situation, I recommend starting with an emergency fund of 3-6 months of expenses. Would you like me to help you create a savings plan?",
+        text: 'I apologize, but I\'m having trouble connecting right now. Please check your internet connection and try again later.',
         isUser: false,
       };
-      setChatHistory(prev => [...prev, aiResponse]);
+      
+      setChatHistory(prev => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleWhatIfSimulator = () => {
     Alert.alert('What-If Simulator', 'This feature will help you calculate different scenarios for your financial goals. Coming soon!');
+  };
+
+  const handleKeyPress = (event: any) => {
+    if (event.nativeEvent.key === 'Enter' && !event.nativeEvent.shiftKey) {
+      event.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const handleClearChat = () => {
+    Alert.alert(
+      'Clear Chat History',
+      'Are you sure you want to delete all chat messages? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: () => {
+            setChatHistory([]);
+            Alert.alert('Success', 'Chat history cleared successfully!');
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -94,9 +190,16 @@ export default function AdvisorScreen() {
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>AI Advisor</Text>
-            <TouchableOpacity onPress={() => setShowChat(false)}>
-              <Ionicons name="close" size={24} color="#6b7680" />
-            </TouchableOpacity>
+            <View style={styles.modalHeaderActions}>
+              {chatHistory.length > 0 && (
+                <TouchableOpacity onPress={handleClearChat} style={styles.clearButton}>
+                  <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={() => setShowChat(false)}>
+                <Ionicons name="close" size={24} color="#6b7680" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <ScrollView style={styles.chatContainer}>
@@ -139,8 +242,14 @@ export default function AdvisorScreen() {
               placeholder="Ask your financial question..."
               placeholderTextColor="#6b7680"
               multiline
+              onKeyPress={handleKeyPress}
+              blurOnSubmit={false}
             />
-            <TouchableOpacity style={styles.sendButton} onPress={handleSendMessage}>
+            <TouchableOpacity 
+              style={[styles.sendButton, (!chatMessage.trim() || isLoading) && styles.sendButtonDisabled]} 
+              onPress={handleSendMessage}
+              disabled={!chatMessage.trim() || isLoading}
+            >
               <Ionicons name="send" size={20} color="#ffffff" />
             </TouchableOpacity>
           </View>
@@ -240,6 +349,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#2b2f33',
   },
+  modalHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  clearButton: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+  },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -329,5 +448,9 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sendButtonDisabled: {
+    backgroundColor: '#2b2f33',
+    opacity: 0.5,
   },
 });
