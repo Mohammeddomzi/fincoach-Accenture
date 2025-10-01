@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 // Simple storage
 const storage = {
@@ -59,6 +59,13 @@ interface Goal {
   isCompleted: boolean;
 }
 
+interface ChatMessage {
+  id: string;
+  text: string;
+  isUser: boolean;
+  isLoading?: boolean;
+}
+
 interface AppData {
   goals: Goal[];
   nickname: string;
@@ -68,8 +75,37 @@ interface AppData {
   challenges: any[];
   tips: any[];
   transactions: any[];
-  chatHistory: any[];
+  chatHistory: ChatMessage[];
 }
+
+// Loading dots component
+const LoadingDots = () => {
+  const dot1Anim = useRef(new Animated.Value(0.4)).current;
+  const dot2Anim = useRef(new Animated.Value(0.7)).current;
+  const dot3Anim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const animateDots = () => {
+      Animated.sequence([
+        Animated.timing(dot1Anim, { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.timing(dot2Anim, { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.timing(dot3Anim, { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.timing(dot1Anim, { toValue: 0.4, duration: 300, useNativeDriver: true }),
+        Animated.timing(dot2Anim, { toValue: 0.7, duration: 300, useNativeDriver: true }),
+        Animated.timing(dot3Anim, { toValue: 0.4, duration: 300, useNativeDriver: true }),
+      ]).start(() => animateDots());
+    };
+    animateDots();
+  }, []);
+
+  return (
+    <View style={styles.loadingDots}>
+      <Animated.View style={[styles.dot, { opacity: dot1Anim }]} />
+      <Animated.View style={[styles.dot, { opacity: dot2Anim }]} />
+      <Animated.View style={[styles.dot, { opacity: dot3Anim }]} />
+    </View>
+  );
+};
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('home');
@@ -158,7 +194,7 @@ export default function App() {
   };
 
   const checkAchievements = (goal: Goal) => {
-    const newAchievements = [];
+    const newAchievements: string[] = [];
     
     // First goal achievement
     if (appData.goals.length === 0) {
@@ -183,7 +219,7 @@ export default function App() {
         ...prev,
         achievements: [...prev.achievements, ...newAchievements],
       }));
-      Alert.alert('Achievement Unlocked!', `You earned: ${newAchievements.join(', ')}`);
+       Alert.alert('Achievement Unlocked!', `You earned: ${newAchievements.join(', ')}`);
     }
   };
 
@@ -254,33 +290,96 @@ export default function App() {
     }
   };
 
-  const handleSendChat = () => {
+  const handleSendChat = async () => {
     if (!chatMessage.trim()) return;
     
     const userMessage = { id: Date.now().toString(), text: chatMessage, isUser: true };
-    const botResponse = { 
-      id: (Date.now() + 1).toString(), 
-      text: generateBotResponse(chatMessage),
-      isUser: false 
-    };
     
+    // Add user message immediately
     setAppData(prev => ({
       ...prev,
-      chatHistory: [...prev.chatHistory, userMessage, botResponse],
+      chatHistory: [...prev.chatHistory, userMessage],
     }));
     
+    const currentMessage = chatMessage;
     setChatMessage('');
-  };
-
-  const generateBotResponse = (message: string): string => {
-    const responses = [
-      "Great question! Let me help you with that.",
-      "Based on your goals, I recommend focusing on building an emergency fund first.",
-      "You're doing well! Keep tracking your expenses daily.",
-      "Consider automating your savings to make it easier.",
-      "Your progress looks good. Try to increase your monthly contribution by 10%.",
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
+    
+    try {
+      // Create a placeholder bot message that will be updated with streaming content
+      const botMessageId = (Date.now() + 1).toString();
+      const botMessage = { 
+        id: botMessageId, 
+        text: '',
+        isUser: false,
+        isLoading: true
+      };
+      
+      // Add loading message
+      setAppData(prev => ({
+        ...prev,
+        chatHistory: [...prev.chatHistory, botMessage],
+      }));
+      
+      // Call the chat API
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: currentMessage,
+          settings: {
+            currency: 'SAR',
+            locale: 'en-SA'
+          },
+          stream: true
+        }),
+      });
+      
+      if (!response.ok) {
+         throw new Error(`API request failed: ${response.status}`);
+      }
+      
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body');
+      }
+      
+      let fullResponse = '';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = new TextDecoder().decode(value);
+        fullResponse += chunk;
+        
+        // Update the bot message with streaming content
+        setAppData(prev => ({
+          ...prev,
+          chatHistory: prev.chatHistory.map(msg => 
+            msg.id === botMessageId 
+              ? { ...msg, text: fullResponse, isLoading: false }
+              : msg
+          ),
+        }));
+      }
+      
+    } catch (error) {
+      console.error('Chat API error:', error);
+      
+      // Update the bot message with error
+      const errorMessage = "I'm sorry, I'm having trouble connecting right now. Please try again later.";
+      setAppData(prev => ({
+        ...prev,
+        chatHistory: prev.chatHistory.map(msg => 
+          msg.id === (Date.now() + 1).toString()
+            ? { ...msg, text: errorMessage, isLoading: false }
+            : msg
+        ),
+      }));
+    }
   };
 
   const handleWhatIfSimulation = () => {
@@ -288,13 +387,13 @@ export default function App() {
     const monthlyNeeded = totalGoals / whatIfData.months;
     const projectedSavings = whatIfData.monthlyContribution * whatIfData.months;
     
-    Alert.alert(
-      'What-If Simulation',
-      `With ${formatCurrency(whatIfData.monthlyContribution)}/month for ${whatIfData.months} months:\n\n` +
-      `Projected Savings: ${formatCurrency(projectedSavings)}\n` +
-      `Monthly Need: ${formatCurrency(monthlyNeeded)}\n` +
-      `You'll ${projectedSavings >= totalGoals ? 'reach' : 'be short of'} your goals!`
-    );
+     Alert.alert(
+       'What-If Simulation',
+       `With ${formatCurrency(whatIfData.monthlyContribution)}/month for ${whatIfData.months} months:\n\n` +
+       `Projected Savings: ${formatCurrency(projectedSavings)}\n` +
+       `Monthly Need: ${formatCurrency(monthlyNeeded)}\n` +
+       `You'll ${projectedSavings >= totalGoals ? 'reach' : 'be short of'} your goals!`
+     );
   };
 
   const handleJoinChallenge = (challengeId: string) => {
@@ -318,7 +417,7 @@ export default function App() {
         points: prev.points + challenge.points,
       }));
       addPoints(challenge.points);
-      Alert.alert('Challenge Completed!', `You earned ${challenge.points} points!`);
+       Alert.alert('Challenge Completed!', `You earned ${challenge.points} points!`);
     }
   };
 
@@ -712,9 +811,16 @@ export default function App() {
             
             {appData.chatHistory.map((message) => (
               <View key={message.id} style={[styles.chatMessage, message.isUser ? styles.userMessage : styles.botMessage]}>
-                <Text style={[styles.chatText, message.isUser ? styles.userText : styles.botText]}>
-                  {message.text}
-                </Text>
+                {message.isLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <Text style={styles.botText}>Thinking...</Text>
+                    <LoadingDots />
+                  </View>
+                ) : (
+                  <Text style={[styles.chatText, message.isUser ? styles.userText : styles.botText]}>
+                    {message.text}
+                  </Text>
+                )}
               </View>
             ))}
           </ScrollView>
@@ -1469,4 +1575,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  // Loading animation styles
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  loadingDots: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#4f7f8c',
+  },
+  dot1: {
+    opacity: 0.4,
+  },
+  dot2: {
+    opacity: 0.7,
+  },
+  dot3: {
+    opacity: 1,
+  },
 });
