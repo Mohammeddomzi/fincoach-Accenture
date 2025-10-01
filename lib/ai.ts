@@ -225,28 +225,33 @@ export const sendChatMessage = async (
       });
     }
 
-    // Web version - try API first, fallback if it fails
-    console.log("Using web API with fallback");
+    // Web version - use actual API
+    console.log("Using web API");
     
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message, settings, stream: true }),
-      });
+    // Determine API URL based on environment
+    const isProduction = process.env.NODE_ENV === 'production';
+    const baseUrl = isProduction 
+      ? process.env.EXPO_PUBLIC_API_BASE_URL || window.location.origin
+      : '';
+    
+    const apiUrl = `${baseUrl}/api/chat`;
+    console.log("API URL:", apiUrl);
+    
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message, settings, stream: true }),
+    });
 
-      console.log("Response status:", response.status);
-      console.log("Response ok:", response.ok);
+    console.log("Response status:", response.status);
+    console.log("Response ok:", response.ok);
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      return response.body;
-    } catch (error) {
-      console.log("API failed, using fallback response:", error);
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      console.error("Response error:", errorText);
+      // Return fallback response instead of error
       return new ReadableStream({
         start(controller) {
           const fallbackResponse = getFallbackResponse(message, settings);
@@ -263,24 +268,40 @@ export const sendChatMessage = async (
         },
       });
     }
+
+    console.log("Response body exists:", !!response.body);
+    return response.body;
   } catch (error) {
     console.error("Error sending chat message:", error);
 
-    // Fallback: return intelligent response if API fails
-    console.log("Falling back to intelligent response due to error");
+    // Fallback: return a mock response if API fails
+    console.log("Falling back to mock response due to error");
     return new ReadableStream({
       start(controller) {
-        const fallbackResponse = getFallbackResponse(message, settings);
-        let i = 0;
+        const fallbackResponse = `I apologize, but I'm having trouble connecting right now.\n\nError: ${String(
+          error
+        )}\n\nHere are some general financial tips:
+
+• Build an emergency fund (3-6 months of expenses)
+• Pay off high-interest debt first
+• Start investing early for compound growth
+• Track your spending monthly
+• Set realistic financial goals
+
+Please try again later. This is educational content, not professional financial advice.`;
+
+        let index = 0;
         const interval = setInterval(() => {
-          if (i < fallbackResponse.length) {
-            controller.enqueue(new TextEncoder().encode(fallbackResponse[i]));
-            i++;
+          if (index < fallbackResponse.length) {
+            controller.enqueue(
+              new TextEncoder().encode(fallbackResponse[index])
+            );
+            index++;
           } else {
             clearInterval(interval);
             controller.close();
           }
-        }, 20);
+        }, 30);
       },
     });
   }
