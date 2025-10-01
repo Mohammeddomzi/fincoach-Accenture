@@ -11,11 +11,5 @@
   ],
   "env": {
     "NODE_ENV": "production"
-  },
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/app/api/$1"
-    }
-  ]
+  }
 }
