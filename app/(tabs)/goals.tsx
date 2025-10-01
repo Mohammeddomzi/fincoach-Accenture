@@ -7,12 +7,19 @@ import { storage } from '../../lib/storage';
 export default function GoalsScreen() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [showAddGoal, setShowAddGoal] = useState(false);
-  const [newGoal, setNewGoal] = useState({
+  const [newGoal, setNewGoal] = useState<{
+    name: string;
+    targetAmount: string;
+    currentAmount: string;
+    deadline: string;
+    priority: 'low' | 'medium' | 'high';
+    category: string;
+  }>({
     name: '',
     targetAmount: '',
     currentAmount: '',
     deadline: '',
-    priority: 'medium' as const,
+    priority: 'medium',
     category: 'savings',
   });
 

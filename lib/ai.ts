@@ -2,6 +2,110 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ChatMessage } from "../types";
 import { isExpoGo } from "./platform";
 
+// Fallback response function for when API is unavailable
+function getFallbackResponse(message: string, settings?: any): string {
+  const currency = settings?.currency || 'SAR';
+  const lowerMessage = message.toLowerCase();
+  
+  if (lowerMessage.includes('budget') || lowerMessage.includes('spending')) {
+    return `Here's a simple budgeting approach for ${currency}:
+
+• **50/30/20 Rule**: 50% needs, 30% wants, 20% savings
+• **Track expenses** for 30 days to understand spending patterns
+• **Set monthly limits** for each category
+• **Use apps** to monitor transactions automatically
+
+**30-Day Plan:**
+1. Week 1: Track all expenses
+2. Week 2: Categorize spending
+3. Week 3: Set realistic limits
+4. Week 4: Adjust and optimize
+
+*Educational purposes, not financial advice.*`;
+  }
+  
+  if (lowerMessage.includes('save') || lowerMessage.includes('emergency')) {
+    return `Emergency fund strategy for ${currency}:
+
+• **Start small**: Aim for 1,000 ${currency} initially
+• **Build gradually**: Target 3-6 months of expenses
+• **High-yield savings**: Keep in accessible account
+• **Automate transfers**: Set up monthly contributions
+
+**30-Day Plan:**
+1. Calculate monthly expenses
+2. Open dedicated savings account
+3. Set up automatic transfers
+4. Track progress weekly
+
+*Educational purposes, not financial advice.*`;
+  }
+  
+  if (lowerMessage.includes('debt') || lowerMessage.includes('loan')) {
+    return `Debt reduction strategy for ${currency}:
+
+• **List all debts**: Amounts, interest rates, minimum payments
+• **Choose method**: Snowball (smallest first) or Avalanche (highest interest)
+• **Pay more than minimum**: Even 50 ${currency} extra helps
+• **Avoid new debt**: Pause non-essential spending
+
+**30-Day Plan:**
+1. Create debt inventory
+2. Choose payoff strategy
+3. Increase payments where possible
+4. Monitor progress monthly
+
+*Educational purposes, not financial advice.*`;
+  }
+  
+  if (lowerMessage.includes('invest') || lowerMessage.includes('stock')) {
+    return `Investment basics for ${currency}:
+
+• **Start with education**: Learn before investing
+• **Diversify**: Don't put all money in one place
+• **Long-term focus**: Think 5+ years
+• **Consider index funds**: Lower risk, steady growth
+
+**30-Day Plan:**
+1. Research investment options
+2. Start with small amounts
+3. Use dollar-cost averaging
+4. Review quarterly
+
+*Educational purposes, not financial advice.*`;
+  }
+  
+  if (lowerMessage.includes('goal') || lowerMessage.includes('target')) {
+    return `Goal setting for ${currency}:
+
+• **SMART goals**: Specific, Measurable, Achievable, Relevant, Time-bound
+• **Break down large goals**: Monthly/weekly targets
+• **Track progress**: Regular check-ins
+• **Celebrate milestones**: Stay motivated
+
+**30-Day Plan:**
+1. Define your financial goals
+2. Set specific amounts and deadlines
+3. Create action plan
+4. Start taking steps
+
+*Educational purposes, not financial advice.*`;
+  }
+  
+  // Default response
+  return `I'm here to help with your financial questions! I can assist with:
+
+• **Budgeting** and expense tracking
+• **Emergency fund** planning
+• **Debt reduction** strategies
+• **Investment** basics
+• **Goal setting** and planning
+
+Please ask me about any of these topics, and I'll provide practical advice in ${currency}.
+
+*Educational purposes, not financial advice.*`;
+}
+
 export const sendChatMessage = async (
   message: string,
   settings?: any
@@ -24,16 +128,15 @@ export const sendChatMessage = async (
       console.log("Expo Go base URL:", baseUrl);
       if (!baseUrl) {
         console.warn(
-          "EXPO_PUBLIC_API_BASE_URL not set; using brief notice on device"
+          "EXPO_PUBLIC_API_BASE_URL not set; using fallback responses"
         );
         return new ReadableStream({
           start(controller) {
-            const text =
-              "Backend URL not configured. Set EXPO_PUBLIC_API_BASE_URL to your dev server URL.";
+            const fallbackResponse = getFallbackResponse(message, settings);
             let i = 0;
             const interval = setInterval(() => {
-              if (i < text.length) {
-                controller.enqueue(new TextEncoder().encode(text[i]));
+              if (i < fallbackResponse.length) {
+                controller.enqueue(new TextEncoder().encode(fallbackResponse[i]));
                 i++;
               } else {
                 clearInterval(interval);
@@ -138,17 +241,14 @@ export const sendChatMessage = async (
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
       console.error("Response error:", errorText);
-      // Return a streamed fallback containing the error text so UI doesn't show generic error
+      // Return fallback response instead of error
       return new ReadableStream({
         start(controller) {
-          const text =
-            `I apologize, but I couldn't complete your request.\n\n` +
-            (errorText ? `Error from server: ${errorText}\n\n` : "") +
-            `Please try again in a moment.`;
+          const fallbackResponse = getFallbackResponse(message, settings);
           let i = 0;
           const interval = setInterval(() => {
-            if (i < text.length) {
-              controller.enqueue(new TextEncoder().encode(text[i]));
+            if (i < fallbackResponse.length) {
+              controller.enqueue(new TextEncoder().encode(fallbackResponse[i]));
               i++;
             } else {
               clearInterval(interval);
