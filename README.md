@@ -209,34 +209,6 @@ fincoach/
 - Configure Sentry DSN in `lib/sentry.ts`
 - Customize Tamagui theme in `tamagui.config.ts`
 
-## Deployment
-
-### Vercel Deployment
-
-1. **Set up environment variables in Vercel:**
-   - Go to your Vercel project settings
-   - Add `OPENAI_API_KEY` with your OpenAI API key
-
-2. **Deploy:**
-   ```bash
-   npm run vercel-build
-   vercel --prod
-   ```
-
-3. **API Routes:**
-   - The app includes API routes at `/api/chat` and `/api/analyze`
-   - These routes are configured in `vercel.json` to work with Vercel's serverless functions
-   - Test the API with: `https://your-app.vercel.app/api/test`
-
-### Troubleshooting
-
-If the chatbot isn't working in production:
-
-1. **Check API routes:** Visit `https://your-app.vercel.app/api/test` to verify API is working
-2. **Check environment variables:** Ensure `OPENAI_API_KEY` is set in Vercel
-3. **Check logs:** View Vercel function logs for any errors
-4. **Verify build:** Ensure the build completed successfully
-
 ## Contributing
 
 1. Fork the repository
