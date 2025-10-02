@@ -7,9 +7,10 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "deploy": "npx expo export -p web && npx eas-cli@latest deploy",
-    "build": "expo export -p web",
-    "vercel-build": "expo export -p web"
+    "dev": "expo start --web",
+    "build": "expo export -p web --output-dir dist",
+    "vercel-build": "expo export -p web --output-dir dist",
+    "deploy": "vercel --prod"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
